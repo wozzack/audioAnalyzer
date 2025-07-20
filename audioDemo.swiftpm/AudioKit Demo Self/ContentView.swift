@@ -2,15 +2,15 @@ import SwiftUI
 import AudioKit
 import AVFoundation
 
+// slider value is not in sync with progress at all, and seeking shows progress
+// at different value then intended. when attempting to seek backwards it adds the inverse amount of time to reverse instead of subtracting, so if i want to reverse two seconds back, instead it will skip forward by (current duration minus two seconds)
 
 struct ContentView: View {
-    /*
-     attempting to move any audioManager logic out of contentView and back in the class file
-     */
     @StateObject var audioManager = AudioManager()
     @State var song: String = "misato"
     @State var errorMessage: String?
     @State var isPlaylistShowing: Bool = false
+    @State var progressSlider: Double = 0.0
     
     var body : some View {
         VStack {
@@ -37,23 +37,25 @@ struct ContentView: View {
                 if !isEditing {
                     do {
                         // should only seek on release
+                        // seeking() literally is just to seek, nothing more
                         try self.audioManager.seeking(
-                            prog: self.audioManager.progress)
+                            prog: audioManager.progress)
+                        // need to unpause time
+                        
+                        try audioManager.playAudio()
+                    } catch {
+                        print((error as? AudioManagerError)?.errorLogging())
+                    }
+                } else {
+                    // if we are editing, then we want to pause the audio
+                    do {
+                        // audioManager.manualSeekProgress = audioManager.progress
+                        try audioManager.pauseAudio() 
                     } catch {
                         print((error as? AudioManagerError)?.errorLogging())
                     }
                 }
             })
-            // occurs AFTER gesture is finished
-            /*
-            .onChange(of: audioManager.progress) { newValue in
-                do {
-                    try audioManager.seeking(prog: newValue)
-                } catch {
-                    print((error as? AudioManagerError)?.errorLogging())
-                }
-            }
-             */
             
             Text("\(audioManager.player.currentTime, specifier: "%.0f")")
             Text("\(audioManager.progress, specifier: "%.1f")")

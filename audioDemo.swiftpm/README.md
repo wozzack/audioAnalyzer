@@ -8,6 +8,16 @@ addToPlaylist: add audioObject to playlist
      loopAudio: tells player to toggle isLooping, might be redunant
      manualSeek: pauses global timer, changes progress and related variables
      
+     
+implemented clamp seeking in order to stay within bounds, added previousSeekTime to prevent rapid successive seeks. added an explicit stopAudio vs pauseAudio method that resets the actual progress value too, and am attempting to simplify esstenial methods for debugging ease. also moving all audioManager logic from ContentView.swift to AudioManager.swift. created in moment instant variables in order to avoid operations with variables in constant flux
+
+when attempting to seek backwards, it seems to add the inverse amount of time to reverse instead of subtracting, so if i want to reverse two seconds back, instead it will skip forward by (current duration minus two seconds)
+
+idea: decouple slider value from player.currentTime temporarily and:
+1. prevent overwrites during seeking
+2. confirm value used in .seek(time:) is correct and up to date
+3. make sure progress updates are one-way (user input -> player), not both
+     
      TODO
      - seeking bar functionality
          - currently seeking forward from the slider works but going backwards glitches

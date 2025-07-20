@@ -6,6 +6,13 @@
 
 // implemented clamp seeking in order to stay within bounds, added previousSeekTime to prevent rapid successive seeks. added an explicit stopAudio vs pauseAudio method that resets the actual progress value too, and am attempting to simplify esstenial methods for debugging ease. also moving all audioManager logic from ContentView.swift to AudioManager.swift. created in moment instant variables in order to avoid operations with variables in constant flux
 
+// when attempting to seek backwards, it seems to add the inverse amount of time to reverse instead of subtracting, so if i want to reverse two seconds back, instead it will skip forward by (current duration minus two seconds)
+
+// idea: decouple slider value from player.currentTime temporarily and:
+// 1. prevent overwrites during seeking
+// 2. confirm value used in .seek(time:) is correct and up to date
+// 3. make sure progress updates are one-way (user input -> player), not both
+
 import SwiftUI
 import AVFoundation
 import AudioKit
@@ -40,12 +47,12 @@ public class AudioManager: ObservableObject {
     @Published var isLoaded: Bool = false
     
     // variables for seeking bar, timeToken needed to remove observer later on
-    // @Published var progress: Double = 0.0
     @Published var timeToken: Timer? = nil
     @Published var currentAudioObject: AudioObject? = nil
     @Published var previous: Bool = false
     @Published var progress: Double = 0.0
     @Published var isSeeking: Bool = false
+    @Published var manualSeekProgress: Double = 0.0
     @Published var previousSeekTime: Date? = nil
     // cant access properties before object can confirm self
      
@@ -54,31 +61,31 @@ public class AudioManager: ObservableObject {
         try? engine.start()
     }
    
-    // something done fucked up in here, why am i assuming that prog is updated value
-    // well it should be but i put the wrong value in there
     func seeking(prog: Double) throws {
         // unwrap
         guard let current = currentAudioObject 
         else { 
             throw AudioManagerError.AudioObjectInitializationFailure
         }
+        print("seeking to progress=\(prog), duration=\(player.duration), calculated=\(prog * player.duration)")
+        
         // TO AVOID RAPID SUCCESSIVE SEEKS
         if let previousSeek = previousSeekTime, Date().timeIntervalSince(previousSeek) < 0.1 {
             return
         }
         previousSeekTime = Date()
-        
-        let newTime = prog * player.duration
+
+        let newTime = prog * current.duration
         isSeeking = false
-        
-        // ensures the value we end up using doesnt go beyond the bounds
-        let timeLimit = min(max(newTime, 0), current.duration)
+
+        // clamping to ensure the value we end up using doesnt go beyond the bounds
+        let timeLimit = min(max(newTime, 0), player.duration)
         
         // procedural stuff
         player.seek(time: timeLimit)
-        progress = prog
         
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            self.progress = self.player.duration > 0 ? self.player.currentTime / self.player.duration : 0
             self.isSeeking = false
         }
 
@@ -96,10 +103,21 @@ public class AudioManager: ObservableObject {
             // confirm existence of self and unwrapping to be non optional
             guard let self = self, !self.isSeeking 
             else { return }
-        
+            
+            if self.isSeeking ||
+                (self.previousSeekTime != nil && Date().timeIntervalSince(self.previousSeekTime!) < 0.3) {
+                return
+            }
+            // in moment values to avoid operations w. variables that are in flux
             let instantTime = player.currentTime
             let instantDuration = player.duration
             self.progress = instantDuration > 0 ? instantTime / instantDuration : 0
+            
+            // resets audio playback, used here as this is already checking every interval
+            if player.currentTime == player.duration {
+                try? stopAudio()
+                print("reached the end!")
+            }
         }
     }
     
