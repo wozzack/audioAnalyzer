@@ -5,13 +5,12 @@ import AVFoundation
 
 struct ContentView: View {
     /*
-     scuffy spaghetti-looking-ass frontend for now, will make organized and pretty later
+     attempting to move any audioManager logic out of contentView and back in the class file
      */
     @StateObject var audioManager = AudioManager()
     @State var song: String = "misato"
     @State var errorMessage: String?
     @State var isPlaylistShowing: Bool = false
-    @State var sliderValue: Double = 0.0
     
     var body : some View {
         VStack {
@@ -34,21 +33,19 @@ struct ContentView: View {
             Slider(value: $audioManager.progress, 
                    in: 0...1, 
                    onEditingChanged: { isEditing in
-                do {
-                    // there has to be a simplier way to write this
-                    if isEditing {
-                        // audioManager.isManualSeeking = true
-                        try audioManager.pauseAudio() // this will also pauseTimer
-                    } else {
-                        //try audioManager.seeking(prog: audioManager.progress)
-                        // audioManager.isManualSeeking = false
-                        try audioManager.playAudio() // this will also startTimer
+                audioManager.isSeeking = isEditing
+                if !isEditing {
+                    do {
+                        // should only seek on release
+                        try self.audioManager.seeking(
+                            prog: self.audioManager.progress)
+                    } catch {
+                        print((error as? AudioManagerError)?.errorLogging())
                     }
-                } catch {
-                    print((error as? AudioManagerError)?.errorLogging())
                 }
             })
             // occurs AFTER gesture is finished
+            /*
             .onChange(of: audioManager.progress) { newValue in
                 do {
                     try audioManager.seeking(prog: newValue)
@@ -56,6 +53,7 @@ struct ContentView: View {
                     print((error as? AudioManagerError)?.errorLogging())
                 }
             }
+             */
             
             Text("\(audioManager.player.currentTime, specifier: "%.0f")")
             Text("\(audioManager.progress, specifier: "%.1f")")
