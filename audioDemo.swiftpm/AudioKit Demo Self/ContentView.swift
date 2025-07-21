@@ -2,7 +2,13 @@ import SwiftUI
 import AudioKit
 import AVFoundation
 
-// just some janky ui for testing backend
+/*
+ just some janky ui for testing backend
+ contentview flow logic: is slider actively being changed? if so, run
+ manualSeeking() on slider value and then run playAudio. else, update
+ progressSlider and run pauseAudio() so the timer isnt updating when 
+ the user is seeking
+ */
 
 struct ContentView: View {
     @StateObject var audioManager = AudioManager()

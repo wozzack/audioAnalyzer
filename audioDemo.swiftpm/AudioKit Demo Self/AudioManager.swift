@@ -1,8 +1,4 @@
 /*
-  AudioManager.swift
-  Audio App Backend stuff
- 
-  Created by Kevin Truong on 6/29/25.
  implemented clamp seeking in order to stay within bounds, added 
  previousSeekTime to prevent rapid successive seeks. added an explicit stopAudio 
  vs pauseAudio method that resets the actual progress value too, and am attempting 
@@ -15,6 +11,7 @@
  2. confirm value used in .seek(time:) is correct and up to date
  3. make sure progress updates are one-way (user input -> player), not both
 */
+
 import SwiftUI
 import AVFoundation
 import AudioKit
