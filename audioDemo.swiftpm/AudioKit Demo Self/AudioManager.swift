@@ -49,9 +49,8 @@ public class AudioManager: ObservableObject {
     // variables for seeking bar, timeToken needed to remove observer later on
     @Published var timeToken: Timer? = nil
     @Published var currentAudioObject: AudioObject? = nil
-    @Published var previous: Bool = false
     @Published var progress: Double = 0.0
-    @Published var isSeeking: Bool = false
+    @Published var isManualSeeking: Bool = false
     @Published var manualSeekProgress: Double = 0.0
     @Published var previousSeekTime: Date? = nil
     // cant access properties before object can confirm self
@@ -61,9 +60,9 @@ public class AudioManager: ObservableObject {
         try? engine.start()
     }
    
-    func seeking(prog: Double) throws {
+    func manualSeeking(prog: Double) throws {
         // unwrap
-        guard let current = currentAudioObject 
+        guard let _ = currentAudioObject 
         else { 
             throw AudioManagerError.AudioObjectInitializationFailure
         }
@@ -75,8 +74,8 @@ public class AudioManager: ObservableObject {
         }
         previousSeekTime = Date()
 
-        let newTime = prog * current.duration
-        isSeeking = false
+        let newTime = prog * player.duration
+        isManualSeeking = false
 
         // clamping to ensure the value we end up using doesnt go beyond the bounds
         let timeLimit = min(max(newTime, 0), player.duration)
@@ -86,7 +85,7 @@ public class AudioManager: ObservableObject {
         
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
             self.progress = self.player.duration > 0 ? self.player.currentTime / self.player.duration : 0
-            self.isSeeking = false
+            self.isManualSeeking = false
         }
 
     }
@@ -101,11 +100,10 @@ public class AudioManager: ObservableObject {
             
             [weak self] _ in
             // confirm existence of self and unwrapping to be non optional
-            guard let self = self, !self.isSeeking 
+            guard let self = self, !self.isManualSeeking 
             else { return }
-            
-            if self.isSeeking ||
-                (self.previousSeekTime != nil && Date().timeIntervalSince(self.previousSeekTime!) < 0.3) {
+        
+            if (self.previousSeekTime != nil && Date().timeIntervalSince(self.previousSeekTime!) < 0.3) {
                 return
             }
             // in moment values to avoid operations w. variables that are in flux

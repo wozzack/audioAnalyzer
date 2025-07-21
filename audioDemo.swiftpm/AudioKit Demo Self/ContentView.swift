@@ -33,12 +33,12 @@ struct ContentView: View {
             Slider(value: $audioManager.progress, 
                    in: 0...1, 
                    onEditingChanged: { isEditing in
-                audioManager.isSeeking = isEditing
+                audioManager.isManualSeeking = isEditing
                 if !isEditing {
                     do {
                         // should only seek on release
                         // seeking() literally is just to seek, nothing more
-                        try self.audioManager.seeking(
+                        try self.audioManager.manualSeeking(
                             prog: audioManager.progress)
                         // need to unpause time
                         
