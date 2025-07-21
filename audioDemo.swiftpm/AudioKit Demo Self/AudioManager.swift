@@ -75,7 +75,9 @@ public class AudioManager: ObservableObject {
         previousSeekTime = Date()
 
         let newTime = prog * player.duration
-        isManualSeeking = false
+        // shouldnt i set this to true instead of false?
+        // isManualSeeking = false
+        isManualSeeking = true
 
         // clamping to ensure the value we end up using doesnt go beyond the bounds
         let timeLimit = min(max(newTime, 0), player.duration)
