@@ -1,12 +1,14 @@
+/* 
+ these descriptions suck ass rn, not specific enough nor gives enough context.
+ redo the categorization of the groupings later. should have error report both 
+ offendingvfunction and the actual type of error somehow.
+ */
+
 import SwiftUI
 import AudioKit
 import Foundation
 
 public enum AudioManagerError: Error {
-    /* 
-     these descriptions suck ass rn, not specific enough nor gives enough context. redo the categorization of the groupings later. should have error report both offending
-     function and the actual type of error somehow.
-     */
     // for when unwrapping audio object
     case AudioObjectInitializationFailure
     

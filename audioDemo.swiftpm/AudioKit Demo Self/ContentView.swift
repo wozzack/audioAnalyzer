@@ -2,7 +2,7 @@ import SwiftUI
 import AudioKit
 import AVFoundation
 
-// currentTime is jerking me around
+// just some janky ui for testing backend
 
 struct ContentView: View {
     @StateObject var audioManager = AudioManager()
@@ -31,22 +31,15 @@ struct ContentView: View {
                 audioManager.isManualSeeking = isEditing
                 if !isEditing {
                     do {
-                        // should only seek on release
-                        // seeking() literally is just to seek, nothing more
-                        print(progressSlider)
                         try self.audioManager.manualSeeking(
                             prog: progressSlider)
-                        // need to unpause time
-                        print("Finished manual seek. Current time is: ", audioManager.player.currentTime)
                         try audioManager.playAudio()
                     } catch {
                         print((error as? AudioManagerError)?.errorLogging())
                     }
                 } else {
-                    // if we are editing, then we want to pause the audio
                     do {
                         progressSlider = audioManager.progress
-                        print("Started editing. Current time is: ", audioManager.player.currentTime)
                         try audioManager.pauseAudio() 
                     } catch {
                         print((error as? AudioManagerError)?.errorLogging())

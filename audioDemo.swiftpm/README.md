@@ -6,7 +6,7 @@ addToPlaylist: add audioObject to playlist
      pauseTimer: destroys timer and deallocate to prevent leaks, will save past time
      removeFromPlaylist: removes from playlist
      loopAudio: tells player to toggle isLooping, might be redunant
-     manualSeek: pauses global timer, changes progress and related variables
+     manualSeeking: pauses global timer, changes progress and related variables
      
      
 implemented clamp seeking in order to stay within bounds, added previousSeekTime to prevent rapid successive seeks. added an explicit stopAudio vs pauseAudio method that resets the actual progress value too, and am attempting to simplify esstenial methods for debugging ease. also moving all audioManager logic from ContentView.swift to AudioManager.swift. created in moment instant variables in order to avoid operations with variables in constant flux
