@@ -1,21 +1,13 @@
-/*
- implemented clamp seeking in order to stay within bounds, added 
- previousSeekTime to prevent rapid successive seeks. added an explicit stopAudio 
- vs pauseAudio method that resets the actual progress value too, and am attempting 
- to simplify esstenial methods for debugging ease. also moving all audioManager 
- logic from ContentView.swift to AudioManager.swift. created in moment instant 
- variables in order to avoid operations with variables in constant flux
-
- decouple slider value from player.currentTime temporarily and:
- 1. prevent overwrites during seeking
- 2. confirm value used in .seek(time:) is correct and up to date
- 3. make sure progress updates are one-way (user input -> player), not both
-*/
-
 import SwiftUI
 import AVFoundation
 import AudioKit
+import Waveform
 import Foundation
+
+/*
+ Handle microphone input: NodeRecorder
+ Handle Waveform: WaveformDataRequest
+ */
 
 func errorHandler(_ error: Error) {
     // optional cast in case of missing AudioManagerError
@@ -188,10 +180,48 @@ public class AudioManager: ObservableObject {
     func clearPlaylist() {
         playlist = []
     }
-
+    
+    func downSampling(length: Int, file: AVAudioFile) throws -> Array<Float> {
+        // need to find the amount of channels
+        
+        guard let buffer = AVAudioPCMBuffer(
+            pcmFormat: file.processingFormat, 
+            frameCapacity: AVAudioFrameCount(file.length))
+        else {
+            throw AudioManagerError.GenericFailure
+        }
+        
+        try file.read(into: buffer)
+        guard let sample = buffer.floatChannelData
+        else {
+            throw AudioManagerError.GenericFailure
+        }
+        // cause does not conform to type Sequence, need to wrap it
+        let firstChannel = UnsafeBufferPointer(
+            start: sample[0], 
+            count: Int(buffer.frameLength))
+        let secondChannel = UnsafeBufferPointer(
+            start: sample[1],
+            count: Int(buffer.frameLength))
+        
+        // just displaying one channel for ease of implementation for now
+        let averageChannel = zip(firstChannel, secondChannel).map {
+            ($0 + $1) / 2.0 }
+        var downSample: [Float] = []
+        for i in stride(from: 0, to: Int(buffer.frameLength), by: length) {
+            downSample.append(averageChannel[i])
+        }
+        return Array(downSample)
+    }
+    
+    
+    // should also handle buffer loading so we can preload waveform visual
     func loadAudio(audio: AudioObject) throws {
         do {
             let loadingFile = try AVAudioFile(forReading: audio.url)
+            // loads in waveform
+            let sample = try SampleBuffer(downSampling(length: 300, file: loadingFile))
+            
             try player.load(file: loadingFile)
             isLoaded = true
             currentAudioObject = audio

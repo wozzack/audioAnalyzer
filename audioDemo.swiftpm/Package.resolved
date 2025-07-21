@@ -8,6 +8,15 @@
         "revision" : "5b3fd238ef8ee95c9842ca4ea83ca58ee151e630",
         "version" : "5.6.5"
       }
+    },
+    {
+      "identity" : "waveform",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/AudioKit/Waveform",
+      "state" : {
+        "revision" : "79103e766434eb32aff9f0b169a469fce0af9ebd",
+        "version" : "1.0.2"
+      }
     }
   ],
   "version" : 2

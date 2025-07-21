@@ -9,6 +9,7 @@ import AudioKit
 import Foundation
 
 public enum AudioManagerError: Error {
+    case GenericFailure
     // for when unwrapping audio object
     case AudioObjectInitializationFailure
     
@@ -25,6 +26,8 @@ public enum AudioManagerError: Error {
     
     func errorLogging() -> String {
         switch self {
+        case .GenericFailure:
+            return "Some type of failure."
         case .AudioObjectInitializationFailure:
             return "Failure to initialize AudioObject."
             

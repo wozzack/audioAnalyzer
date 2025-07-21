@@ -33,13 +33,15 @@ let package = Package(
         )
     ],
     dependencies: [
-        .package(url: "https://github.com/audiokit/audiokit", "5.6.5"..<"6.0.0")
+        .package(url: "https://github.com/audiokit/audiokit", "5.6.5"..<"6.0.0"),
+        .package(url: "https://github.com/AudioKit/Waveform", "1.0.2"..<"2.0.0")
     ],
     targets: [
         .executableTarget(
             name: "AppModule",
             dependencies: [
-                .product(name: "AudioKit", package: "audiokit")
+                .product(name: "AudioKit", package: "audiokit"),
+                .product(name: "Waveform", package: "Waveform")
             ],
             path: ".",
             resources: [

@@ -19,6 +19,11 @@ struct ContentView: View {
     
     var body : some View {
         VStack {
+            Canvas { _, _ in
+
+            }
+            .frame(width: 300, height: 200)
+            .border(Color.blue)
             Button(audioManager.isPlaying ? "Pause" : "Play") {
                 do {
                     if audioManager.player.isPlaying {
