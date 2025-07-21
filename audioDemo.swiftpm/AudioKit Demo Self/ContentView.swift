@@ -2,8 +2,7 @@ import SwiftUI
 import AudioKit
 import AVFoundation
 
-// slider value is not in sync with progress at all, and seeking shows progress
-// at different value then intended. when attempting to seek backwards it adds the inverse amount of time to reverse instead of subtracting, so if i want to reverse two seconds back, instead it will skip forward by (current duration minus two seconds)
+// currentTime is jerking me around
 
 struct ContentView: View {
     @StateObject var audioManager = AudioManager()
@@ -25,12 +24,8 @@ struct ContentView: View {
                     print((error as? AudioManagerError)?.errorLogging())
                 }
             }.padding(20)
-            /* 
-             1. use .onEditingChanged to detect if manual seeking or not
-             2. pause automatic timer progress updates while manual seeking
-             3. apply built in seek operation when slider is released
-             */
-            Slider(value: $audioManager.progress, 
+         
+            Slider(value: $progressSlider, 
                    in: 0...1, 
                    onEditingChanged: { isEditing in
                 audioManager.isManualSeeking = isEditing
@@ -38,10 +33,11 @@ struct ContentView: View {
                     do {
                         // should only seek on release
                         // seeking() literally is just to seek, nothing more
+                        print(progressSlider)
                         try self.audioManager.manualSeeking(
-                            prog: audioManager.progress)
+                            prog: progressSlider)
                         // need to unpause time
-                        
+                        print("Finished manual seek. Current time is: ", audioManager.player.currentTime)
                         try audioManager.playAudio()
                     } catch {
                         print((error as? AudioManagerError)?.errorLogging())
@@ -49,14 +45,21 @@ struct ContentView: View {
                 } else {
                     // if we are editing, then we want to pause the audio
                     do {
-                        // audioManager.manualSeekProgress = audioManager.progress
+                        progressSlider = audioManager.progress
+                        print("Started editing. Current time is: ", audioManager.player.currentTime)
                         try audioManager.pauseAudio() 
                     } catch {
                         print((error as? AudioManagerError)?.errorLogging())
                     }
                 }
             })
-            
+            .onChange(of: audioManager.progress) { 
+                _, newState in
+                if !audioManager.isManualSeeking {
+                    progressSlider = newState
+                }
+                
+            }
             Text("\(audioManager.player.currentTime, specifier: "%.0f")")
             Text("\(audioManager.progress, specifier: "%.1f")")
             

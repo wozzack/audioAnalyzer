@@ -19,9 +19,7 @@ import AudioKit
 import Foundation
 
 func errorHandler(_ error: Error) {
-    // optional cast in case not of AudioManagerError
     if let audioError = error as? AudioManagerError {
-        // hand over to console function
         print(audioError.errorLogging())
     } else {
         print("Unhandled error.")
@@ -53,72 +51,68 @@ public class AudioManager: ObservableObject {
     @Published var isManualSeeking: Bool = false
     @Published var manualSeekProgress: Double = 0.0
     @Published var previousSeekTime: Date? = nil
-    // cant access properties before object can confirm self
-     
+
     init() {
         engine.output = player
         try? engine.start()
     }
    
+    // THIS IS THE ROOT OF ALL CORRUPTION INHERENT IN THE WORLD
     func manualSeeking(prog: Double) throws {
         // unwrap
+        print("Started manual seek. Current time is: ", player.currentTime)
         guard let _ = currentAudioObject 
         else { 
             throw AudioManagerError.AudioObjectInitializationFailure
         }
-        print("seeking to progress=\(prog), duration=\(player.duration), calculated=\(prog * player.duration)")
+        // print("seeking to progress=\(prog), duration=\(player.duration), calculated=\(prog * player.duration), currentTime=\(player.currentTime)")
         
-        // TO AVOID RAPID SUCCESSIVE SEEKS
         if let previousSeek = previousSeekTime, Date().timeIntervalSince(previousSeek) < 0.1 {
             return
         }
+        print("Checked for rapid successive seeks. Current time is: ", player.currentTime)
         previousSeekTime = Date()
 
         let newTime = prog * player.duration
+        print("Declared newTime to be: ", newTime)
         // shouldnt i set this to true instead of false?
         // isManualSeeking = false
         isManualSeeking = true
-
-        // clamping to ensure the value we end up using doesnt go beyond the bounds
+        print("Set isManualSeeking to true. Current time is: ", player.currentTime)
         let timeLimit = min(max(newTime, 0), player.duration)
-        
-        // procedural stuff
-        player.seek(time: timeLimit)
+        print("Seeking to: ", timeLimit)
+        player.seek(time: timeLimit - player.currentTime)
+        // WHEN I SEEK, IT ADDS THE TIME TO THE CURRENTTIME FOR SOME REASON
+        print("Finished player seek. Current time is: ", player.currentTime)
         
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
             self.progress = self.player.duration > 0 ? self.player.currentTime / self.player.duration : 0
             self.isManualSeeking = false
         }
-
     }
-    // previousTime and currentTime overlap, relies on if previous
-    // make sure to initialize Timer object first
-    // startTimer(): invalidates the timer object, then creates a timer that checks if the user is NOT seeking, and if so then updates the progress variable. if user is seeking, does nothing as the functio`n call to pauseTimer() is done in UI logic
+    
     func startTimer() throws {
-        // always gotta make sure or else funky stuff happens
         timeToken?.invalidate()
         timeToken = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) {
-            // weak self is to avoid retaining cycle inside closure
-            
             [weak self] _ in
-            // confirm existence of self and unwrapping to be non optional
-            guard let self = self, !self.isManualSeeking 
+            // guard let self = self, !self.isManualSeeking 
+            guard let self = self
             else { return }
-        
+            
             if (self.previousSeekTime != nil && Date().timeIntervalSince(self.previousSeekTime!) < 0.3) {
                 return
             }
-            // in moment values to avoid operations w. variables that are in flux
+            
             let instantTime = player.currentTime
             let instantDuration = player.duration
             self.progress = instantDuration > 0 ? instantTime / instantDuration : 0
-            
-            // resets audio playback, used here as this is already checking every interval
+
             if player.currentTime == player.duration {
                 try? stopAudio()
                 print("reached the end!")
             }
         }
+        print("Started timer, Current time is: ", player.currentTime)
     }
     
     func stopTimer() throws {
@@ -128,19 +122,35 @@ public class AudioManager: ObservableObject {
         }
         timeToken?.invalidate()
         timeToken = nil
+        print("Stopped timer. Current time is: ", player.currentTime)
     }
     
-    // player start() vs play()
+    // player start() vs play() vs resume()
     func playAudio() throws {
         guard isLoaded else {
             throw AudioManagerError.PlaybackFailure
         }
-        player.play()
         do { 
+            player.start()
+            print("Started audio. Current time is: ", player.currentTime)
             try startTimer()
             isPlaying = true
         } catch {
-            print("didnt start timer")
+            print(player.isStarted)
+        }
+    }
+    
+    func resumeAudio() throws {
+        guard isLoaded else {
+            throw AudioManagerError.PlaybackFailure
+        }
+        player.resume()
+        print("Resumed audio. Current time is: ", player.currentTime)
+        do {
+            try startTimer()
+            isPlaying = true
+        } catch {
+            print("didnt resume")
         }
     }
     
@@ -149,6 +159,7 @@ public class AudioManager: ObservableObject {
             throw AudioManagerError.PlaybackFailure
         }
         player.pause()
+        print("Paused audio. Current time is: ", player.currentTime)
         do { 
             try stopTimer()
             isPlaying = false
@@ -162,6 +173,7 @@ public class AudioManager: ObservableObject {
             throw AudioManagerError.PlaybackFailure
         }
         player.stop()
+        print("Stopped audio. Current time is: ", player.currentTime)
         do {
             try stopTimer()
             isPlaying = false
