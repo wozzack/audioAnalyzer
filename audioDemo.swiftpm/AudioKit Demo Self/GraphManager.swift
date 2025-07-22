@@ -12,15 +12,8 @@ import AudioKit
 
 
 class GraphManager: ObservableObject {
-    // use demo model for now
-    var samples: SampleBuffer
-    
-    // for when empty, will mostly use for now
-    
-    init(file: AVAudioFile) {
-        let stereo = file.floatChannelData()!
-        samples = SampleBuffer(samples: stereo[0])
-    }
+    // allows dynamic changes
+    var visualModel: (any VisualGraph)?
     
 }
 
