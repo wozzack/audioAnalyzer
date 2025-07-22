@@ -160,14 +160,14 @@ public class AudioManager: ObservableObject {
         }
         
     }
-    func convertToAudioObject(s: String) async throws -> AudioObject {
+    func convertToAudioObject(s: String) throws -> AudioObject {
         guard let fileURL = Bundle.main.url(forResource: s, withExtension: "mp3")
         else {
             throw AudioManagerError.ConvertToAudioObjectFailure
         }
 
-        let audioFile = AVAsset(url: fileURL)
-        return try await AudioObject(url: fileURL, name: s, duration: CMTimeGetSeconds(audioFile.load(.duration)))
+        let audio = AudioObject(url: fileURL, name: s, duration: player.duration)
+        return audio
     }
     
     func convertToAVAudioFile(s: String) throws -> AVAudioFile {

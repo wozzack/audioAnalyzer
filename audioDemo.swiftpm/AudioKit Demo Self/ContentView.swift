@@ -46,14 +46,14 @@ struct ContentView: View {
                             prog: progressSlider)
                         try audioManager.playAudio()
                     } catch {
-                        print((error as? AudioManagerError)?.errorLogging())
+                        print((error as? AudioManagerError)?.errorLogging() as Any)
                     }
                 } else {
                     do {
                         progressSlider = audioManager.progress
                         try audioManager.pauseAudio() 
                     } catch {
-                        print((error as? AudioManagerError)?.errorLogging())
+                        print((error as? AudioManagerError)?.errorLogging() as Any)
                     }
                 }
             })
@@ -76,7 +76,7 @@ struct ContentView: View {
                     try audioManager.addToPlaylist(audio: audio)
                     song = ""
                 } catch {
-                    print((error as? AudioManagerError)?.errorLogging())
+                    print((error as? AudioManagerError)?.errorLogging() as Any)
                 }
                 
             }.padding(20)
@@ -90,7 +90,7 @@ struct ContentView: View {
                         try audioManager.addToPlaylist(audio: audio)
                         song = ""
                     } catch {
-                        print((error as? AudioManagerError)?.errorLogging())
+                        print((error as? AudioManagerError)?.errorLogging() as Any)
                     }
                 } 
                 .foregroundColor(.blue)
@@ -108,7 +108,7 @@ struct ContentView: View {
                                     try audioManager.loadAudio(audio: audioFile)
                                     audioManager.isLoaded = true
                                 } catch {
-                                    print((error as? AudioManagerError)?.errorLogging())
+                                    print((error as? AudioManagerError)?.errorLogging() as Any)
                                 }
                             } label: {
                                 HStack {

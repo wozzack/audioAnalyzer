@@ -11,4 +11,5 @@
 - Microphone input capability (recording and live).
 - Refactor ErrorManager.
 - Individual function documentation.
+- Make decent looking UI.
 
