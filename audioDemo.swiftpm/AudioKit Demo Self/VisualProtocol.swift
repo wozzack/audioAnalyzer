@@ -8,7 +8,6 @@ import Waveform
 <<<<<<< HEAD
 protocol VisualGraph: ObservableObject {
     // requires that any conforming class has this variable accessible and it is read-only as set is not used
-    var rawData: [Any] { get }
     // returns what?....
     func processAudio(file: AVAudioFile)
     // canvas stuff
