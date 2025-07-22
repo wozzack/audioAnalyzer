@@ -15,6 +15,7 @@ protocol VisualGraph: ObservableObject {
 }
 
 class WaveformView: VisualGraph, ObservableObject {
+    
     var rawData: [Any]
     
     init(file: AVAudioFile) {

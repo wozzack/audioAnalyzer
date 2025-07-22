@@ -12,7 +12,6 @@ import AVFoundation
 
 struct ContentView: View {
     @StateObject var audioManager = AudioManager()
-    @StateObject var waveformManager = WaveformDemoModel(file: )
     @State var song: String = "misato"
     @State var errorMessage: String?
     @State var isPlaylistShowing: Bool = false
@@ -20,7 +19,6 @@ struct ContentView: View {
     
     var body : some View {
         VStack {
-            Waveform(samples: )
             Canvas { _, _ in
 
             }
@@ -34,7 +32,7 @@ struct ContentView: View {
                         try audioManager.playAudio()
                     }
                 } catch {
-                    print((error as? AudioManagerError)?.errorLogging())
+                    print((error as? AudioManagerError)?.errorLogging() as Any)
                 }
             }.padding(20)
          

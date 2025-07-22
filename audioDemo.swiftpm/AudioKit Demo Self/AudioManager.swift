@@ -160,14 +160,14 @@ public class AudioManager: ObservableObject {
         }
         
     }
-    func convertToAudioObject(s: String) throws -> AudioObject {
-        guard let fileURL = Bundle.main.url(forResource: s, withExtension: "mp3") 
+    func convertToAudioObject(s: String) async throws -> AudioObject {
+        guard let fileURL = Bundle.main.url(forResource: s, withExtension: "mp3")
         else {
             throw AudioManagerError.ConvertToAudioObjectFailure
         }
-        // need to grab duration from mp3 file, eh duration woirks for now lol
+
         let audioFile = AVAsset(url: fileURL)
-        return AudioObject(url: fileURL, name: s, duration: CMTimeGetSeconds(audioFile.duration)) // this doesnt make sense, its already in seconds format??? CMTime -> Seconds right???
+        return try await AudioObject(url: fileURL, name: s, duration: CMTimeGetSeconds(audioFile.load(.duration)))
     }
     
     func convertToAVAudioFile(s: String) throws -> AVAudioFile {
@@ -189,7 +189,7 @@ public class AudioManager: ObservableObject {
     func clearPlaylist() {
         playlist = []
     }
-    
+    // make it work for N amount of generic channels later
     func downSampling(length: Int, file: AVAudioFile) throws -> Array<Float> {
         // need to find the amount of channels
         
@@ -229,7 +229,7 @@ public class AudioManager: ObservableObject {
         do {
             let loadingFile = try AVAudioFile(forReading: audio.url)
             // loads in waveform
-            let sample = try SampleBuffer(samples: downSampling(length: 300, file: loadingFile))
+            _ = try SampleBuffer(samples: downSampling(length: 300, file: loadingFile))
             
             try player.load(file: loadingFile)
             isLoaded = true
