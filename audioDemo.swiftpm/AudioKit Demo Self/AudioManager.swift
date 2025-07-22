@@ -170,6 +170,15 @@ public class AudioManager: ObservableObject {
         return AudioObject(url: fileURL, name: s, duration: CMTimeGetSeconds(audioFile.duration)) // this doesnt make sense, its already in seconds format??? CMTime -> Seconds right???
     }
     
+    func convertToAVAudioFile(s: String) throws -> AVAudioFile {
+        guard let fileURL = Bundle.main.url(forResource: s, withExtension: "mp3")
+        else {
+            throw AudioManagerError.GenericFailure
+        }
+        let file  = try AVAudioFile(forReading: fileURL)
+        return file
+    }
+    
     func addToPlaylist(audio: AudioObject) throws {
         guard !playlist.contains(audio) else {
             throw AudioManagerError.AddPlaylistFailure
@@ -198,7 +207,7 @@ public class AudioManager: ObservableObject {
         }
         // cause does not conform to type Sequence, need to wrap it
         let firstChannel = UnsafeBufferPointer(
-            start: sample[0], 
+            start: sample[0],
             count: Int(buffer.frameLength))
         let secondChannel = UnsafeBufferPointer(
             start: sample[1],
@@ -220,7 +229,7 @@ public class AudioManager: ObservableObject {
         do {
             let loadingFile = try AVAudioFile(forReading: audio.url)
             // loads in waveform
-            let sample = try SampleBuffer(downSampling(length: 300, file: loadingFile))
+            let sample = try SampleBuffer(samples: downSampling(length: 300, file: loadingFile))
             
             try player.load(file: loadingFile)
             isLoaded = true
