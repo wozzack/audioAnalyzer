@@ -189,6 +189,39 @@ public class AudioManager: ObservableObject {
     func clearPlaylist() {
         playlist = []
     }
+
+    func generalizedDownSampling(length: Int, file: AVAudioFile) throws -> Array<Float> {
+        guard let buffer = AVAudioPCMBuffer(
+            pcmFormat: file.processingFormat, 
+            frameCapacity: AVAudioFrameCount(file.length))
+        else {
+            throw AudioManagerError.GenericFailure
+        }
+        try file.read(into:buffer)
+        guard let samples = buffer.floatChannelData
+        else {
+            throw AudioManagerError.GenericFailure
+        }
+
+        let channelCount = Int(buffer.format.channelCount)
+
+        // one dimensional once we apply averaging function
+        var downSamples: [Float] = []
+
+        for i in 0..<channelCount {
+            let channelData = UnsafeBufferPointer(
+                start: samples[i],
+                count: Int(buffer.frameLength))
+                for j in stride(from: 0, to: Int(buffer.frameLength), by: length) {
+                    downSamples[j] += channelData[j] / Float(channelCount)
+        }
+        // downSamples is an 1D array of float values that represent the averaged samples
+        return downSamples
+
+
+
+
+
     // make it work for N amount of generic channels later
     func downSampling(length: Int, file: AVAudioFile) throws -> Array<Float> {
         // need to find the amount of channels
@@ -205,6 +238,7 @@ public class AudioManager: ObservableObject {
         else {
             throw AudioManagerError.GenericFailure
         }
+
         // cause does not conform to type Sequence, need to wrap it
         let firstChannel = UnsafeBufferPointer(
             start: sample[0],
