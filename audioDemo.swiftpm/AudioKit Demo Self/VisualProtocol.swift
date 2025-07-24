@@ -1,5 +1,6 @@
-// pre-render with core graphics to UIImage for waveform
-// use accelerate framework with canvas or full metal
+// pre-render with core graphics to UIImage for waveform via canvas
+// ignore above, use canvas since core graphics requires a wrapper
+// use accelerate framework with canvas or full metal for spectrogram
 
 import AVFoundation
 
