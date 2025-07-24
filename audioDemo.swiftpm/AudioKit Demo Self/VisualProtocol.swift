@@ -13,6 +13,7 @@ import Waveform
 protocol VisualGraph: ObservableObject {
     // requires that any conforming class has this variable accessible and it is read-only as set is not used
     var rawData: [Any] { get }
+    var processedData: [Any] { get }
     // returns what?....
     func processAudio(AVFile: AVAudioFile) throws
     // canvas stuff
@@ -34,12 +35,16 @@ class WaveformView: VisualGraph, ObservableObject {
         let sample = genericDownSampling(length: 300, file: AVFile)
         self.samples = SampleBuffer(samples: sample)
     }
-
-    func drawGraph(a: GraphicsContext, b: CGSize) {
-
+    
+    // called in canvas as GraphManager.visualModel.drawGraph(start: 0, end: )
+    func drawGraph(start: s, end: e) -> Waveform {
+        var display = Waveform(
+            samples: self.samples, 
+            start: Int(s * Double(self.samples.count - 1),
+            ))
+        return display
+            
     }
-
-}
 class SpectrogramView: VisualGraph, ObservableObject {
     // whatever
     var rawData: [Any]

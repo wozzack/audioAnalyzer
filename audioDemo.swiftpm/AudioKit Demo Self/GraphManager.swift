@@ -7,6 +7,8 @@
 // visualization is its own class, and graph manager handles the type of visual that
 // is showing (through general canvas?)
 
+// this should handle all adjustments to the graphview such as zoom, switching models, etc
+
 import AVFoundation
 
 import AudioKit
@@ -15,11 +17,15 @@ import Foundation
 
 import SwiftUI
 
+// will mutate graphics context
 import Waveform
 
 class GraphManager: ObservableObject {
-    // allows dynamic changes
+    // how the fyuck to approach switching models?
+
     var visualModel: (any VisualGraph)?
-    @Published var samples = visualModel.rawData
+    @Published var samples = visualModel.rawData?
+
+    // needs to pass view to canvas
 
 }

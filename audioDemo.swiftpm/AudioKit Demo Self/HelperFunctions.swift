@@ -8,6 +8,25 @@ import AudioKit
 
 import SwiftUI
 
+import Waveform
+
+func convertToAudioObject(s: String) throws -> AudioObject {
+  guard let fileURL = Bundle.main.url(forResource: s, withExtension: "mp3")
+  else {
+    throw AudioManagerError.ConvertToAudioObjectFailure
+  }
+
+  let audio = AudioObject(url: fileURL, name: s, duration: player.duration)
+  return audio
+}
+func convertToAVAudioFile(s: String) throws -> AVAudioFile {
+  guard let fileURL = Bundle.main.url(forResource: s, withExtension: "mp3")
+  else {
+    throw AudioManagerError.GenericFailure
+  }
+  let file = try AVAudioFile(forReading: fileURL)
+  return file
+}
 func generalizedDownSampling(length: Int, file: AVAudioFile) throws -> [Float] {
   guard
     let buffer = AVAudioPCMBuffer(

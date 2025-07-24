@@ -4,6 +4,8 @@
  manualSeeking() on slider value and then run playAudio. else, update
  progressSlider and run pauseAudio() so the timer isnt updating when 
  the user is seeking
+
+ need to update error handling in accordance with new error system
  */
 
 import AVFoundation

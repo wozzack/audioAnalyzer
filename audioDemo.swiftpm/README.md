@@ -9,11 +9,11 @@
 [Work In Progress]
 - Implementation of waveform model display via Canvas.
 - Refactoring AudioManager to fit general methods into HelperFunctions.swift
+- Refactoring ErrorManager.
 
 [Planned]
 - Spectrogram display.
 - Microphone input capability (recording and live).
-- Refactor ErrorManager.
 - Individual function documentation.
 - Make decent looking UI.
 
