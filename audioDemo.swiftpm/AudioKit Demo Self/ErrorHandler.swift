@@ -1,58 +1,32 @@
-/* 
- these descriptions suck ass rn, not specific enough nor gives enough context.
- redo the categorization of the groupings later. should have error report both 
- offendingvfunction and the actual type of error somehow.
- */
-
 import AudioKit
 
 import Foundation
 
 import SwiftUI
 
-public enum AudioManagerError: Error {
-    case GenericFailure
-    // for when unwrapping audio object
-    case AudioObjectInitializationFailure
-
-    case StartEngineFailure
-    case AddPlaylistFailure
-    case ConvertToURLFailure
-    case ConvertToAudioObjectFailure
-    case LoadAudioFailure
-    case PlaybackFailure
-    case LoopingFailure
-    case DeleteFromPlaylistError
-    case GetProgressFailure
-    case TimeSeekingFailure
-
+extension Error {
     func errorLogging() -> String {
         switch self {
-        case .GenericFailure:
-            return "Some type of failure."
-        case .AudioObjectInitializationFailure:
-            return "Failure to initialize AudioObject."
+        case let AudioManagerError.GenericFailure(funcName):
+            return "[AudioManagerError] Error in \(funcName)."
 
-        case .StartEngineFailure:
-            return "Failure to start engine."
-        case .AddPlaylistFailure:
-            return "Failure to add AudioObject to playlist."
-        case .ConvertToURLFailure:
-            return "Failure to convert string into URL-type."
-        case .ConvertToAudioObjectFailure:
-            return "Failure to convert intoAudioObject-type."
-        case .LoadAudioFailure:
-            return "Failure to load audio into player."
-        case .PlaybackFailure:
-            return "Failure to playback audio."
-        case .LoopingFailure:
-            return "Failure to loop audio."
-        case .DeleteFromPlaylistError:
-            return "Failure to delete AudioObject from playlist."
-        case .GetProgressFailure:
-            return "Failure to get progress of current audio file playback."
-        case .TimeSeekingFailure:
-            return "Failure to setup seeking parameters for audio playback."
+        case let GraphManagerError.GenericFailure(funcName):
+            return "[GraphManagerError] Error in \(funcName)."
+
+        case let VisualProtocolError.GenericFailure(funcName):
+            return "[VisualProtocolError] Error in \(funcName)."
         }
     }
+}
+public enum GraphManagerError: Error {
+    case GenericFailure(funcName: String)
+
+}
+public enum VisualProtocolError: Error {
+    case GenericFailure(funcName: String)
+
+}
+public enum AudioManagerError: Error {
+    case GenericFailure(funcName: String)
+
 }

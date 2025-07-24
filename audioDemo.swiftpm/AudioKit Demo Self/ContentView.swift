@@ -22,11 +22,17 @@ struct ContentView: View {
 
     var body: some View {
         VStack {
+            Text("AudioKit Demo")
+                .font(.largeTitle)
+                .padding(20)
+
+            // main UI for graph interface
             Canvas { _, _ in
 
             }
             .frame(width: 300, height: 200)
             .border(Color.blue)
+
             Button(audioManager.isPlaying ? "Pause" : "Play") {
                 do {
                     if audioManager.player.isPlaying {
