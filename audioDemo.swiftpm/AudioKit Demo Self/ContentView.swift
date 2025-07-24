@@ -1,7 +1,6 @@
-import SwiftUI
-import AudioKit
 import AVFoundation
 
+import AudioKit
 /*
  just some janky ui for testing backend
  contentview flow logic: is slider actively being changed? if so, run
@@ -10,14 +9,17 @@ import AVFoundation
  the user is seeking
  */
 
+import SwiftUI
+
 struct ContentView: View {
     @StateObject var audioManager = AudioManager()
+    @StateObject var graphManager = GraphManager()
     @State var song: String = "misato"
     @State var errorMessage: String?
     @State var isPlaylistShowing: Bool = false
     @State var progressSlider: Double = 0.0
-    
-    var body : some View {
+
+    var body: some View {
         VStack {
             Canvas { _, _ in
 
@@ -35,38 +37,40 @@ struct ContentView: View {
                     print((error as? AudioManagerError)?.errorLogging() as Any)
                 }
             }.padding(20)
-         
-            Slider(value: $progressSlider, 
-                   in: 0...1, 
-                   onEditingChanged: { isEditing in
-                audioManager.isManualSeeking = isEditing
-                if !isEditing {
-                    do {
-                        try self.audioManager.manualSeeking(
-                            prog: progressSlider)
-                        try audioManager.playAudio()
-                    } catch {
-                        print((error as? AudioManagerError)?.errorLogging() as Any)
-                    }
-                } else {
-                    do {
-                        progressSlider = audioManager.progress
-                        try audioManager.pauseAudio() 
-                    } catch {
-                        print((error as? AudioManagerError)?.errorLogging() as Any)
+
+            Slider(
+                value: $progressSlider,
+                in: 0...1,
+                onEditingChanged: { isEditing in
+                    audioManager.isManualSeeking = isEditing
+                    if !isEditing {
+                        do {
+                            try self.audioManager.manualSeeking(
+                                prog: progressSlider)
+                            try audioManager.playAudio()
+                        } catch {
+                            print((error as? AudioManagerError)?.errorLogging() as Any)
+                        }
+                    } else {
+                        do {
+                            progressSlider = audioManager.progress
+                            try audioManager.pauseAudio()
+                        } catch {
+                            print((error as? AudioManagerError)?.errorLogging() as Any)
+                        }
                     }
                 }
-            })
-            .onChange(of: audioManager.progress) { 
+            )
+            .onChange(of: audioManager.progress) {
                 _, newState in
                 if !audioManager.isManualSeeking {
                     progressSlider = newState
                 }
-                
+
             }
             Text("\(audioManager.player.currentTime, specifier: "%.0f")")
             Text("\(audioManager.progress, specifier: "%.1f")")
-            
+
             Button(isPlaylistShowing ? "Hide Playlist" : "Show Playlist") {
                 isPlaylistShowing.toggle()
             }.padding(20)
@@ -78,11 +82,12 @@ struct ContentView: View {
                 } catch {
                     print((error as? AudioManagerError)?.errorLogging() as Any)
                 }
-                
+
             }.padding(20)
             TextField("Enter song name: ", text: $song)
                 .multilineTextAlignment(
-                .center)
+                    .center
+                )
                 .padding(20)
                 .onSubmit {
                     do {
@@ -92,9 +97,9 @@ struct ContentView: View {
                     } catch {
                         print((error as? AudioManagerError)?.errorLogging() as Any)
                     }
-                } 
+                }
                 .foregroundColor(.blue)
-            
+
             Button("Clear playlist.") {
                 audioManager.clearPlaylist()
             }
@@ -102,8 +107,9 @@ struct ContentView: View {
             if isPlaylistShowing {
                 ScrollView {
                     VStack {
-                        ForEach(audioManager.playlist, id: \.self) { 
-                            audioFile in Button() {
+                        ForEach(audioManager.playlist, id: \.self) {
+                            audioFile in
+                            Button {
                                 do {
                                     try audioManager.loadAudio(audio: audioFile)
                                     audioManager.isLoaded = true
