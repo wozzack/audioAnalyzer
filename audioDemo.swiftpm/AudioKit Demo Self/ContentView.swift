@@ -1,6 +1,3 @@
-import AVFoundation
-
-import AudioKit
 /*
  just some janky ui for testing backend
  contentview flow logic: is slider actively being changed? if so, run
@@ -8,6 +5,10 @@ import AudioKit
  progressSlider and run pauseAudio() so the timer isnt updating when 
  the user is seeking
  */
+
+import AVFoundation
+
+import AudioKit
 
 import SwiftUI
 

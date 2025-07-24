@@ -1,12 +1,13 @@
+/*
+ Handle microphone input: NodeRecorder
+ Handle Waveform: WaveformDataRequest
+ */
+
 import AVFoundation
 
 import AudioKit
 
 import Foundation
-/*
- Handle microphone input: NodeRecorder
- Handle Waveform: WaveformDataRequest
- */
 
 import SwiftUI
 

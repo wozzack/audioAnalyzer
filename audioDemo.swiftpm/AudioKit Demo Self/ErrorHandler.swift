@@ -1,11 +1,12 @@
-import AudioKit
-
-import Foundation
 /* 
  these descriptions suck ass rn, not specific enough nor gives enough context.
  redo the categorization of the groupings later. should have error report both 
  offendingvfunction and the actual type of error somehow.
  */
+
+import AudioKit
+
+import Foundation
 
 import SwiftUI
 

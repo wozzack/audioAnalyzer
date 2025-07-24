@@ -1,10 +1,11 @@
+// pre-render with core graphics to UIImage for waveform
+// use accelerate framework with canvas or full metal
+
 import AVFoundation
 
 import AudioKit
 
 import SwiftUI
-
-// lets work on two visualizations: waveform and spectrogram
 
 import Waveform
 
@@ -29,6 +30,8 @@ class WaveformView: VisualGraph, ObservableObject {
         } else {
             throw AudioManagerError.GenericFailure
         }
+        let sample = genericDownSampling(length: 300, file: AVFile)
+        self.samples = SampleBuffer(samples: sample)
     }
 
     func drawGraph(a: GraphicsContext, b: CGSize) {
@@ -50,6 +53,7 @@ class SpectrogramView: VisualGraph, ObservableObject {
     }
 
     func drawGraph(a: GraphicsContext, b: CGSize) {
-
+        // whatever we end up outputting here needs to be able to be handled
+        // generically by the graphManager...
     }
 }
