@@ -1,8 +1,0 @@
-{
-  "github.copilot.chat.codeGeneration.useInstructionFiles": false,
-  "github.copilot.nextEditSuggestions.enabled": false,
-  "github.copilot.renameSuggestions.triggerAutomatically": false,
-  "github.copilot.enable": {
-    "*": false
-  }
-}
