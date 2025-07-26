@@ -29,25 +29,15 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
-		5D9B850B2E34235A00B9C833 /* AudioDemo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AudioDemo.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		5D9B85192E34235D00B9C833 /* AudioDemoTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AudioDemoTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		5D9B85232E34235D00B9C833 /* AudioDemoUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AudioDemoUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		5D26A8F92E345D5300BEE50C /* AudioDemo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; name = AudioDemo.app; path = "/Users/ktruong/Documents/final i swear/build/Debug/AudioDemo.app"; sourceTree = "<absolute>"; };
+		5D26A8FA2E345D5300BEE50C /* AudioDemoTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; name = AudioDemoTests.xctest; path = "/Users/ktruong/Documents/final i swear/build/Debug/AudioDemo.app/Contents/PlugIns/AudioDemoTests.xctest"; sourceTree = "<absolute>"; };
+		5D26A8FB2E345D5300BEE50C /* AudioDemoUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; name = AudioDemoUITests.xctest; path = "/Users/ktruong/Documents/final i swear/build/Debug/AudioDemoUITests-Runner.app/Contents/PlugIns/AudioDemoUITests.xctest"; sourceTree = "<absolute>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		5D9B850D2E34235A00B9C833 /* AudioDemo */ = {
+		5D26A90A2E345D9C00BEE50C /* Sources */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			path = AudioDemo;
-			sourceTree = "<group>";
-		};
-		5D9B851C2E34235D00B9C833 /* AudioDemoTests */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = AudioDemoTests;
-			sourceTree = "<group>";
-		};
-		5D9B85262E34235E00B9C833 /* AudioDemoUITests */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = AudioDemoUITests;
+			path = Sources;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -82,29 +72,8 @@
 		5D9B85022E34235A00B9C833 = {
 			isa = PBXGroup;
 			children = (
-				5D9B850D2E34235A00B9C833 /* AudioDemo */,
-				5D9B851C2E34235D00B9C833 /* AudioDemoTests */,
-				5D9B85262E34235E00B9C833 /* AudioDemoUITests */,
-				5DBCEC272E343224005DDB13 /* Frameworks */,
-				5D9B850C2E34235A00B9C833 /* Products */,
+				5D26A90A2E345D9C00BEE50C /* Sources */,
 			);
-			sourceTree = "<group>";
-		};
-		5D9B850C2E34235A00B9C833 /* Products */ = {
-			isa = PBXGroup;
-			children = (
-				5D9B850B2E34235A00B9C833 /* AudioDemo.app */,
-				5D9B85192E34235D00B9C833 /* AudioDemoTests.xctest */,
-				5D9B85232E34235D00B9C833 /* AudioDemoUITests.xctest */,
-			);
-			name = Products;
-			sourceTree = "<group>";
-		};
-		5DBCEC272E343224005DDB13 /* Frameworks */ = {
-			isa = PBXGroup;
-			children = (
-			);
-			name = Frameworks;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -122,16 +91,13 @@
 			);
 			dependencies = (
 			);
-			fileSystemSynchronizedGroups = (
-				5D9B850D2E34235A00B9C833 /* AudioDemo */,
-			);
 			name = AudioDemo;
 			packageProductDependencies = (
 				5DBCEC282E343224005DDB13 /* AudioKit */,
 				5DBCEC2A2E343224005DDB13 /* Waveform */,
 			);
 			productName = AudioDemo;
-			productReference = 5D9B850B2E34235A00B9C833 /* AudioDemo.app */;
+			productReference = 5D26A8F92E345D5300BEE50C /* AudioDemo.app */;
 			productType = "com.apple.product-type.application";
 		};
 		5D9B85182E34235D00B9C833 /* AudioDemoTests */ = {
@@ -147,14 +113,11 @@
 			dependencies = (
 				5D9B851B2E34235D00B9C833 /* PBXTargetDependency */,
 			);
-			fileSystemSynchronizedGroups = (
-				5D9B851C2E34235D00B9C833 /* AudioDemoTests */,
-			);
 			name = AudioDemoTests;
 			packageProductDependencies = (
 			);
 			productName = AudioDemoTests;
-			productReference = 5D9B85192E34235D00B9C833 /* AudioDemoTests.xctest */;
+			productReference = 5D26A8FA2E345D5300BEE50C /* AudioDemoTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
 		5D9B85222E34235D00B9C833 /* AudioDemoUITests */ = {
@@ -170,14 +133,11 @@
 			dependencies = (
 				5D9B85252E34235E00B9C833 /* PBXTargetDependency */,
 			);
-			fileSystemSynchronizedGroups = (
-				5D9B85262E34235E00B9C833 /* AudioDemoUITests */,
-			);
 			name = AudioDemoUITests;
 			packageProductDependencies = (
 			);
 			productName = AudioDemoUITests;
-			productReference = 5D9B85232E34235D00B9C833 /* AudioDemoUITests.xctest */;
+			productReference = 5D26A8FB2E345D5300BEE50C /* AudioDemoUITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
 		};
 /* End PBXNativeTarget section */
@@ -218,7 +178,7 @@
 				5D9B85522E3428A400B9C833 /* XCRemoteSwiftPackageReference "Waveform" */,
 			);
 			preferredProjectObjectVersion = 77;
-			productRefGroup = 5D9B850C2E34235A00B9C833 /* Products */;
+			productRefGroup = 5D9B85022E34235A00B9C833;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
