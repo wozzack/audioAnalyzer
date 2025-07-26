@@ -29,9 +29,9 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
-		5D26A8F92E345D5300BEE50C /* AudioDemo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; name = AudioDemo.app; path = "/Users/ktruong/Documents/final i swear/build/Debug/AudioDemo.app"; sourceTree = "<absolute>"; };
-		5D26A8FA2E345D5300BEE50C /* AudioDemoTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; name = AudioDemoTests.xctest; path = "/Users/ktruong/Documents/final i swear/build/Debug/AudioDemo.app/Contents/PlugIns/AudioDemoTests.xctest"; sourceTree = "<absolute>"; };
-		5D26A8FB2E345D5300BEE50C /* AudioDemoUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; name = AudioDemoUITests.xctest; path = "/Users/ktruong/Documents/final i swear/build/Debug/AudioDemoUITests-Runner.app/Contents/PlugIns/AudioDemoUITests.xctest"; sourceTree = "<absolute>"; };
+		5D6D256C2E345E1500E41CCD /* AudioDemo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AudioDemo.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		5D6D256D2E345E1500E41CCD /* AudioDemoTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AudioDemoTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		5D6D256E2E345E1500E41CCD /* AudioDemoUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AudioDemoUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -73,6 +73,9 @@
 			isa = PBXGroup;
 			children = (
 				5D26A90A2E345D9C00BEE50C /* Sources */,
+				5D6D256C2E345E1500E41CCD /* AudioDemo.app */,
+				5D6D256D2E345E1500E41CCD /* AudioDemoTests.xctest */,
+				5D6D256E2E345E1500E41CCD /* AudioDemoUITests.xctest */,
 			);
 			sourceTree = "<group>";
 		};
@@ -97,7 +100,7 @@
 				5DBCEC2A2E343224005DDB13 /* Waveform */,
 			);
 			productName = AudioDemo;
-			productReference = 5D26A8F92E345D5300BEE50C /* AudioDemo.app */;
+			productReference = 5D6D256C2E345E1500E41CCD /* AudioDemo.app */;
 			productType = "com.apple.product-type.application";
 		};
 		5D9B85182E34235D00B9C833 /* AudioDemoTests */ = {
@@ -117,7 +120,7 @@
 			packageProductDependencies = (
 			);
 			productName = AudioDemoTests;
-			productReference = 5D26A8FA2E345D5300BEE50C /* AudioDemoTests.xctest */;
+			productReference = 5D6D256D2E345E1500E41CCD /* AudioDemoTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
 		5D9B85222E34235D00B9C833 /* AudioDemoUITests */ = {
@@ -137,7 +140,7 @@
 			packageProductDependencies = (
 			);
 			productName = AudioDemoUITests;
-			productReference = 5D26A8FB2E345D5300BEE50C /* AudioDemoUITests.xctest */;
+			productReference = 5D6D256E2E345E1500E41CCD /* AudioDemoUITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
 		};
 /* End PBXNativeTarget section */
