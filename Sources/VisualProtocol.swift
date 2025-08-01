@@ -26,7 +26,7 @@ class WaveformView: VisualGraph, ObservableObject {
     var graphType: GraphType(.waveform)
     
     init() {
-    
+        
     }
     
     func processAudio(AVFile: AVAudioFile) throws {

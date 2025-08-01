@@ -9,6 +9,10 @@
 
 // this should handle all adjustments to the graphview such as zoom, switching models, etc
 
+// im reading this waveform documentation and its confusing as fuck so i kinda have two choices
+// 1. spend significant amount of time understanding the waveform class and see if i can modify the display color through an extension or some shit
+// 2. create my own displayclass from scratch, which i already have to do for spectrogram anyways
+
 import AVFoundation
 
 import AudioKit
