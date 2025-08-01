@@ -29,11 +29,11 @@ struct ContentView: View {
                 .padding(20)
 
             // main UI for graph interface
-            Canvas { _, _ in
-
+            Canvas { context, size in
+                graphManager.visualModel?.drawGraph(front: a, back: b)
             }
             .frame(width: 300, height: 200)
-            .border(Color.blue)
+            .border(Color.(graphManager.graphColor))
 
             Button(audioManager.isPlaying ? "Pause" : "Play") {
                 do {

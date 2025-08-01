@@ -23,6 +23,7 @@ class WaveformView: VisualGraph, ObservableObject {
     var rawData: [Any]? = []
     var samples: SampleBuffer?
     var AVFile: AVAudioFile?
+    var graphType: GraphType(.waveform)
     
     init() {
     
@@ -53,7 +54,17 @@ class WaveformView: VisualGraph, ObservableObject {
         
     }
 }
-    
+
+
+
+
+
+
+
+
+
+
+
     
 class SpectrogramView: VisualGraph, ObservableObject {
     // whatever

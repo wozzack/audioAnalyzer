@@ -17,14 +17,46 @@ import Foundation
 
 import SwiftUI
 
-// will mutate graphics context
-import Waveform
+enum GraphType: VisualGraph {
+    case Waveform
+    case Spectrogram
+}
+
 
 class GraphManager: ObservableObject {
-    // how the fyuck to approach switching models?
+    // handles graph loading/changing and graph view modification
 
-    var visualModel: (any VisualGraph)?
+    @Published var visualModel: (any VisualGraph)?
     @Published var samples = visualModel.rawData?
+    @Published var graphColor: Color?
+    @Published var graphShowing: Boolean = false
+    
+    
+    func changeGraph(to newGraph: VisualGraph, with file: AVAudioFile) throws {
+        clearGraph()
+        switch graph {
+        case .Waveform:
+            let model = WaveformView()
+            self.visualModel = model
+            self.samples = processAudio(AVFile: file)
+            self.graphShowing = true
+        
+        case .Spectrogram:
+            // todo
+    
+    }
+    
+    // maybe have a placeholder text to inform graph needs to be loaded
+    func clearGraph() throws {
+        visualModel = nil
+        samples = nil
+        graphColor = nil
+        graphShowing = true
+    }
+    
+    func changeGraphColor(color: Color) throws {
+        
+    }
 
     // needs to pass view to canvas
 
