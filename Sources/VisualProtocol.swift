@@ -12,18 +12,25 @@ import Waveform
 
 protocol VisualGraph: ObservableObject {
     // requires that any conforming class has this variable accessible and it is read-only as set is not used
+    // should be [Float] for waveform
     var rawData: [Any] { get }
     // returns what?....
     func processAudio(AVFile: AVAudioFile) throws
     // canvas stuff
     func drawGraph(start: Int, end: Int) throws
 }
-class WaveformView: VisualGraph, ObservableObject {
+class WaveformView: VisualGraph, Shape, ObservableObject {
     // just two dimensional data, amplitude and time, need to handle downsampling
     var rawData: [Any]? = []
     var samples: SampleBuffer?
+    var shapeData: [CGPoint]?
+    // need to convert to CGPoints
     var AVFile: AVAudioFile?
     var graphType: GraphType(.waveform)
+    
+    // traditionally we would make this min/max and display as an float array of pairs
+    
+    // fuck im going to have to do this from stratch arent i
     
     init() {
         
@@ -40,16 +47,34 @@ class WaveformView: VisualGraph, ObservableObject {
         }
     }
     
-    // called in canvas as GraphManager.visualModel.drawGraph(start: 0, end: )
-    func drawGraph(front: Int, back: Int) throws -> Waveform {
+    func drawGraph(in rect: CGRect) {
         guard let s = self.samples
         else {
             throw VisualGraphError.GenericFailure(funcName: "drawGraph")
         }
-        var display = Waveform(
-            samples: self.samples,
-            start: Int(front * samples.count - 1)
-        )
+        var pathObject = path()
+        
+        for data in shapeData {
+            let normX = rect.x * rect.width
+            let normY = rect.y * rect.height
+            let radius = CGFloat(1.0)
+            let point = CGPoint(normX, normY)
+            pathObject.addArc(center: point, radius: radius, startAngle: .degrees(0), endAngle: .degrees(360), clockwise: true)
+            
+        }
+        
+        return pathObject
+    }
+    
+    // called in canvas as GraphManager.visualModel.drawGraph(start: 0, end: )
+    // outdated, must make from stratch
+    func drawGraphTwo(front: Int, back: Int) throws {
+        guard let s = self.samples
+        else {
+            throw VisualGraphError.GenericFailure(funcName: "drawGraph")
+        }
+        
+        
         return display
         
     }
