@@ -40,7 +40,7 @@ class WaveformView: VisualGraph, Shape, ObservableObject {
         if AVFile == AVFile {
             self.rawData = [AVFile.floatChannelData() as Any]
             self.AVFile = AVFile
-            let sample = try generalizedDownSampling(length: 300, file: AVFile)
+            let sample = try minmaxDownSampling(length: 300, file: AVFile)
             self.samples = SampleBuffer(samples: sample)
         } else {
             throw VisualGraphError.GenericFailure(funcName: "processAudio")
