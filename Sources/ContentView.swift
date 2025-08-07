@@ -17,6 +17,9 @@ import SwiftUI
 struct ContentView: View {
     @StateObject var audioManager = AudioManager()
     @StateObject var graphManager = GraphManager()
+    @StateObject var waveformView = WaveformView()
+    @StateObject var displaySize = CGRect(x: 0, y: 0, width: 300, height: 200)  
+
     @State var song: String = "misato"
     @State var errorMessage: String?
     @State var isPlaylistShowing: Bool = false
@@ -28,12 +31,25 @@ struct ContentView: View {
                 .font(.largeTitle)
                 .padding(20)
 
+            // waveformView.processAudio(AVFile: audioManager.player.audioFile)
+            // waveformView.drawGraph(start: 0, end: Int(audioManager.player.audioFile.length))
+
             // main UI for graph interface
+            // need to pass CGRect to drawGraph
+
+    
             Canvas { context, size in
-                graphManager.visualModel?.drawGraph(front: a, back: b)
+                try graphManager.visualModel.drawGraph(in rect: displaySize)
             }
             .frame(width: 300, height: 200)
             .border(Color.(graphManager.graphColor))
+
+            Button("Load Waveform") {
+                try? graphManager.changeGraph(
+                    graph: .waveform,
+                    audioFile: audioManager.player.audioFile
+                )
+            }
 
             Button(audioManager.isPlaying ? "Pause" : "Play") {
                 do {

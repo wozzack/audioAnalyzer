@@ -12,9 +12,9 @@ import Waveform
 
 protocol VisualGraph: ObservableObject {
     // requires that any conforming class has this variable accessible and it is read-only as set is not used
-    // should be [Float] for waveform
+    var graphType: GraphType { get }
+    // raw data is used to draw the graph, needs to be processed before drawing
     var rawData: [Any] { get }
-    // returns what?....
     func processAudio(AVFile: AVAudioFile) throws
     // canvas stuff
     func drawGraph(start: Int, end: Int) throws
@@ -29,13 +29,11 @@ class WaveformView: VisualGraph, Shape, ObservableObject {
     var graphType: GraphType(.waveform)
     
     // traditionally we would make this min/max and display as an float array of pairs
-    
-    // fuck im going to have to do this from stratch arent i
-    
-    init() {
-        
-    }
-    
+    // but we can also use a single float array and average the samples
+
+    init() { }
+
+    // need to handle shapeData
     func processAudio(AVFile: AVAudioFile) throws {
         if AVFile == AVFile {
             self.rawData = [AVFile.floatChannelData() as Any]
@@ -47,37 +45,23 @@ class WaveformView: VisualGraph, Shape, ObservableObject {
         }
     }
     
-    func drawGraph(in rect: CGRect) {
-        guard let s = self.samples
+    // requires shapeData to be set
+
+    func drawGraph(in rect: CGRect) throws {
+        guard let shapeData = self.shapeData
         else {
             throw VisualGraphError.GenericFailure(funcName: "drawGraph")
         }
-        var pathObject = path()
-        
+        var pathObject = Path()
         for data in shapeData {
-            let normX = rect.x * rect.width
-            let normY = rect.y * rect.height
-            let radius = CGFloat(1.0)
-            let point = CGPoint(normX, normY)
-            pathObject.addArc(center: point, radius: radius, startAngle: .degrees(0), endAngle: .degrees(360), clockwise: true)
-            
+            // convert CGPoint to normalized coordinates
+            let normX = rect.origin.x + data.x * rect.width
+            let normY = rect.origin.y + data.y * rect.height
+            let point = CGPoint(x: normX, y: normY)
+            pathObject.addArc(center: point, radius: 1.0, startAngle: .degrees(0), endAngle: .degrees(360), clockwise: true)
         }
-        
         return pathObject
-    }
-    
-    // called in canvas as GraphManager.visualModel.drawGraph(start: 0, end: )
-    // outdated, must make from stratch
-    func drawGraphTwo(front: Int, back: Int) throws {
-        guard let s = self.samples
-        else {
-            throw VisualGraphError.GenericFailure(funcName: "drawGraph")
-        }
-        
-        
-        return display
-        
-    }
+    }  
 }
 
 

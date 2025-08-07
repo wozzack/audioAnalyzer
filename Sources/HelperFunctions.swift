@@ -20,6 +20,9 @@ func convertToAudioObject(s: String) throws -> AudioObject {
     let audio = AudioObject(url: fileURL, name: s, duration: , file: convertToAVAudioFile(s: s))
   return audio
 }
+
+
+
 func convertToAVAudioFile(s: String) throws -> AVAudioFile {
   guard let fileURL = Bundle.main.url(forResource: s, withExtension: "mp3")
   else {
@@ -28,7 +31,39 @@ func convertToAVAudioFile(s: String) throws -> AVAudioFile {
   let file = try AVAudioFile(forReading: fileURL)
   return file
 }
-func generalizedDownSampling(length: Int, file: AVAudioFile) throws -> [Float] {
+
+func minmaxDownSampling(length: Int, file: AVAudioFile) throws -> [(Float, Float)] {
+  guard let buffer = AVAudioPCMBuffer(
+    pcmFormat: file.processingFormat,
+    frameCapacity: AVAudioFrameCount(file.length))
+
+    else {
+      throw AudioManagerError.GenericFailure(funcName: "minmaxDownSampling")
+    }
+    let channelCount = Int(buffer.format.channelCount)
+
+    var downSamples: [(Float, Float)] = [()]
+    for i in 0..<channelCount {
+      var minAmp: Float = 0
+      var maxAmp: Float = .infinity
+      let channelData = UnsafeBufferPointer(
+        start: buffer.floatChannelData?[i],
+        count: Int(buffer.frameLength))
+      for j in stride(from: 0, to: Int(buffer.frameLength), by: length) {
+        if downSample[j].0 > channelData[j] {
+          downSample[j].0 = channelData[j]
+        }
+        if downSample[j].1 < channelData[j] {
+          downSample[j].1 = channelData[j]
+        }
+      }
+    }
+    return downSamples
+  // downSamples is an array of tuples that represent the min and max samples
+}
+
+
+func averageDownSampling(length: Int, file: AVAudioFile) throws -> [Float] {
   guard
     let buffer = AVAudioPCMBuffer(
       pcmFormat: file.processingFormat,

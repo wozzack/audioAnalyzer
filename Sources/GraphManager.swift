@@ -26,7 +26,6 @@ enum GraphType: VisualGraph {
     case Spectrogram
 }
 
-
 class GraphManager: ObservableObject {
     // handles graph loading/changing and graph view modification
 
@@ -35,31 +34,34 @@ class GraphManager: ObservableObject {
     @Published var graphColor: Color?
     @Published var graphShowing: Boolean = false
     
-    
+    // could change graph type or the audio file itself
     func changeGraph(to newGraph: VisualGraph, with file: AVAudioFile) throws {
         clearGraph()
         switch graph {
         case .Waveform:
             let model = WaveformView()
             self.visualModel = model
-            self.samples = processAudio(AVFile: file)
-            self.graphShowing = true
         
         case .Spectrogram:
             // todo
+            let model = SpectrogramView()
+            self.visualModel = model
+       
+        self.samples = processAudio(AVFile: file)
+        self.graphShowing = true
     
     }
     
     // maybe have a placeholder text to inform graph needs to be loaded
     func clearGraph() throws {
-        visualModel = nil
-        samples = nil
-        graphColor = nil
-        graphShowing = true
+        self.visualModel = nil
+        self.samples = nil
+        self.graphColor = nil
+        self.graphShowing = false
     }
     
     func changeGraphColor(color: Color) throws {
-        
+        self.graphColor = color
     }
 
     // needs to pass view to canvas
