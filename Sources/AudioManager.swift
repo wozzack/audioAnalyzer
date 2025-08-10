@@ -37,7 +37,7 @@ public class AudioManager: ObservableObject {
 
     @Published var isPlaying: Bool = false
     @Published var currentAudio: String? = nil
-    @Published var playlist: [AudioObject] = ["shinji", "kaji"]
+    @Published var playlist: [AudioObject] = []
     @Published var isPlaylistShowing: Bool = false
     @Published var isLoaded: Bool = false
 

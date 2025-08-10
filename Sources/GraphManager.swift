@@ -21,46 +21,45 @@ import Foundation
 
 import SwiftUI
 
-enum GraphType: VisualGraph {
-    case Waveform
-    case Spectrogram
+enum GraphType {
+    case waveform
+    case spectrogram
 }
 
 class GraphManager: ObservableObject {
     // handles graph loading/changing and graph view modification
 
     @Published var visualModel: (any VisualGraph)?
-    @Published var samples = visualModel.rawData?
-    @Published var graphColor: Color?
-    @Published var graphShowing: Boolean = false
+    // not rawData, this is meant to be a layer of abstraction
+    // @Published var samples: SampleBuffer? = visualModel?.samples
+    @Published var graphColor: Color = .blue
+    @Published var graphShowing: Bool = false
     
     // could change graph type or the audio file itself
-    func changeGraph(to newGraph: VisualGraph, with file: AVAudioFile) throws {
+    func changeGraph(newGraph: GraphType, file: AVAudioFile) throws {
         clearGraph()
-        switch graph {
-        case .Waveform:
+        switch newGraph {
+        case .waveform:
             let model = WaveformView()
+            model.processAudio(AVFile: file)
             self.visualModel = model
+            self.graphShowing = true
+            
+        case .spectrogram:
+            // implement spectrogram model
+            throw VisualGraphError.GenericFailure(funcName: "changeGraph")
+        }
         
-        case .Spectrogram:
-            // todo
-            let model = SpectrogramView()
-            self.visualModel = model
-       
-        self.samples = processAudio(AVFile: file)
-        self.graphShowing = true
-    
     }
     
     // maybe have a placeholder text to inform graph needs to be loaded
-    func clearGraph() throws {
+    func clearGraph() {
         self.visualModel = nil
         self.samples = nil
-        self.graphColor = nil
         self.graphShowing = false
     }
     
-    func changeGraphColor(color: Color) throws {
+    func changeGraphColor(color: Color) {
         self.graphColor = color
     }
 

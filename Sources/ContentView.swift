@@ -39,15 +39,23 @@ struct ContentView: View {
 
     
             Canvas { context, size in
-                try graphManager.visualModel.drawGraph(in rect: displaySize)
+                if let visualModel = graphManager.visualModel {
+                    do {
+                        // initialize first for testing
+                        try visualModel.processAudio(AVFile: audioManager.player.audioFile)
+                        try visualModel.drawGraph(in rect: displaySize)
+                    }
+                    catch {
+                        print((error as? VisualGraphError)?.errorLogging() as Any)
+                    }
             }
             .frame(width: 300, height: 200)
             .border(Color.(graphManager.graphColor))
 
             Button("Load Waveform") {
                 try? graphManager.changeGraph(
-                    graph: .waveform,
-                    audioFile: audioManager.player.audioFile
+                    newGraph: .waveform,
+                    file: audioManager.player.audioFile
                 )
             }
 
@@ -155,5 +163,8 @@ struct ContentView: View {
     }
 }
 
+#Preview {
+    ContentView()
+}
 
 
