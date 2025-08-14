@@ -7,8 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		5DBCEC292E343224005DDB13 /* AudioKit in Frameworks */ = {isa = PBXBuildFile; productRef = 5DBCEC282E343224005DDB13 /* AudioKit */; };
-		5DBCEC2B2E343224005DDB13 /* Waveform in Frameworks */ = {isa = PBXBuildFile; productRef = 5DBCEC2A2E343224005DDB13 /* Waveform */; };
+		5D7C521A2E4A949200AD5022 /* AudioKit in Frameworks */ = {isa = PBXBuildFile; productRef = 5D7C52192E4A949200AD5022 /* AudioKit */; };
+		5D7C521C2E4A949700AD5022 /* Waveform in Frameworks */ = {isa = PBXBuildFile; productRef = 5D7C521B2E4A949700AD5022 /* Waveform */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -29,14 +29,34 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		5D6AF3672E49242D00F7E6D1 /* CoreAudioTypes.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreAudioTypes.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.5.sdk/System/Library/Frameworks/CoreAudioTypes.framework; sourceTree = DEVELOPER_DIR; };
 		5D6D256C2E345E1500E41CCD /* AudioDemo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AudioDemo.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		5D6D256D2E345E1500E41CCD /* AudioDemoTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AudioDemoTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		5D6D256E2E345E1500E41CCD /* AudioDemoUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AudioDemoUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		5DC4416A2E4A894900E82EAC /* Exceptions for "Sources" folder in "AudioDemo" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				AudioApp.swift,
+				AudioManager.swift,
+				ContentView.swift,
+				ErrorHandler.swift,
+				GraphManager.swift,
+				HelperFunctions.swift,
+				VisualProtocol.swift,
+			);
+			target = 5D9B850A2E34235A00B9C833 /* AudioDemo */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		5D26A90A2E345D9C00BEE50C /* Sources */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				5DC4416A2E4A894900E82EAC /* Exceptions for "Sources" folder in "AudioDemo" target */,
+			);
 			path = Sources;
 			sourceTree = "<group>";
 		};
@@ -47,8 +67,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				5DBCEC292E343224005DDB13 /* AudioKit in Frameworks */,
-				5DBCEC2B2E343224005DDB13 /* Waveform in Frameworks */,
+				5D7C521A2E4A949200AD5022 /* AudioKit in Frameworks */,
+				5D7C521C2E4A949700AD5022 /* Waveform in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -69,6 +89,14 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		5D6AF3662E49242D00F7E6D1 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				5D6AF3672E49242D00F7E6D1 /* CoreAudioTypes.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
 		5D9B85022E34235A00B9C833 = {
 			isa = PBXGroup;
 			children = (
@@ -76,6 +104,7 @@
 				5D6D256C2E345E1500E41CCD /* AudioDemo.app */,
 				5D6D256D2E345E1500E41CCD /* AudioDemoTests.xctest */,
 				5D6D256E2E345E1500E41CCD /* AudioDemoUITests.xctest */,
+				5D6AF3662E49242D00F7E6D1 /* Frameworks */,
 			);
 			sourceTree = "<group>";
 		};
@@ -96,8 +125,8 @@
 			);
 			name = AudioDemo;
 			packageProductDependencies = (
-				5DBCEC282E343224005DDB13 /* AudioKit */,
-				5DBCEC2A2E343224005DDB13 /* Waveform */,
+				5D7C52192E4A949200AD5022 /* AudioKit */,
+				5D7C521B2E4A949700AD5022 /* Waveform */,
 			);
 			productName = AudioDemo;
 			productReference = 5D6D256C2E345E1500E41CCD /* AudioDemo.app */;
@@ -177,8 +206,8 @@
 			mainGroup = 5D9B85022E34235A00B9C833;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
-				5D9B85512E34286100B9C833 /* XCRemoteSwiftPackageReference "AudioKit" */,
-				5D9B85522E3428A400B9C833 /* XCRemoteSwiftPackageReference "Waveform" */,
+				5D7C52162E4A91FE00AD5022 /* XCRemoteSwiftPackageReference "AudioKit" */,
+				5D7C52172E4A923E00AD5022 /* XCRemoteSwiftPackageReference "Waveform" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 5D9B85022E34235A00B9C833;
@@ -374,9 +403,11 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CLANG_ENABLE_MODULES = YES;
-				CODE_SIGN_ENTITLEMENTS = AudioDemo/AudioDemo.entitlements;
+				CODE_SIGN_ENTITLEMENTS = Sources/AudioDemo.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = Q552JHD2D5;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
@@ -396,14 +427,15 @@
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.audiokit.AudioDemo;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
 				REGISTER_APP_GROUPS = YES;
 				SDKROOT = auto;
-				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
+				SUPPORTED_PLATFORMS = macosx;
+				SUPPORTS_MACCATALYST = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_OBJC_BRIDGING_HEADER = "AudioDemo/AudioDemo-Bridging-Header.h";
+				SWIFT_OBJC_BRIDGING_HEADER = "";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2,7";
 				XROS_DEPLOYMENT_TARGET = 2.5;
 			};
 			name = Debug;
@@ -414,9 +446,11 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CLANG_ENABLE_MODULES = YES;
-				CODE_SIGN_ENTITLEMENTS = AudioDemo/AudioDemo.entitlements;
+				CODE_SIGN_ENTITLEMENTS = Sources/AudioDemo.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = Q552JHD2D5;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
@@ -436,13 +470,14 @@
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.audiokit.AudioDemo;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
 				REGISTER_APP_GROUPS = YES;
 				SDKROOT = auto;
-				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
+				SUPPORTED_PLATFORMS = macosx;
+				SUPPORTS_MACCATALYST = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_OBJC_BRIDGING_HEADER = "AudioDemo/AudioDemo-Bridging-Header.h";
+				SWIFT_OBJC_BRIDGING_HEADER = "";
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2,7";
 				XROS_DEPLOYMENT_TARGET = 2.5;
 			};
 			name = Release;
@@ -460,10 +495,10 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.audiokit.AudioDemoTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = auto;
-				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
+				SUPPORTED_PLATFORMS = macosx;
+				SUPPORTS_MACCATALYST = NO;
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2,7";
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/AudioDemo.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/AudioDemo";
 				XROS_DEPLOYMENT_TARGET = 2.5;
 			};
@@ -482,10 +517,10 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.audiokit.AudioDemoTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = auto;
-				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
+				SUPPORTED_PLATFORMS = macosx;
+				SUPPORTS_MACCATALYST = NO;
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2,7";
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/AudioDemo.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/AudioDemo";
 				XROS_DEPLOYMENT_TARGET = 2.5;
 			};
@@ -503,10 +538,10 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.audiokit.AudioDemoUITests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = auto;
-				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
+				SUPPORTED_PLATFORMS = macosx;
+				SUPPORTS_MACCATALYST = NO;
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2,7";
 				TEST_TARGET_NAME = AudioDemo;
 				XROS_DEPLOYMENT_TARGET = 2.5;
 			};
@@ -524,10 +559,10 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.audiokit.AudioDemoUITests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = auto;
-				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
+				SUPPORTED_PLATFORMS = macosx;
+				SUPPORTS_MACCATALYST = NO;
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2,7";
 				TEST_TARGET_NAME = AudioDemo;
 				XROS_DEPLOYMENT_TARGET = 2.5;
 			};
@@ -575,7 +610,7 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
-		5D9B85512E34286100B9C833 /* XCRemoteSwiftPackageReference "AudioKit" */ = {
+		5D7C52162E4A91FE00AD5022 /* XCRemoteSwiftPackageReference "AudioKit" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/AudioKit/AudioKit";
 			requirement = {
@@ -583,7 +618,7 @@
 				minimumVersion = 5.6.5;
 			};
 		};
-		5D9B85522E3428A400B9C833 /* XCRemoteSwiftPackageReference "Waveform" */ = {
+		5D7C52172E4A923E00AD5022 /* XCRemoteSwiftPackageReference "Waveform" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/AudioKit/Waveform";
 			requirement = {
@@ -594,14 +629,14 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
-		5DBCEC282E343224005DDB13 /* AudioKit */ = {
+		5D7C52192E4A949200AD5022 /* AudioKit */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 5D9B85512E34286100B9C833 /* XCRemoteSwiftPackageReference "AudioKit" */;
+			package = 5D7C52162E4A91FE00AD5022 /* XCRemoteSwiftPackageReference "AudioKit" */;
 			productName = AudioKit;
 		};
-		5DBCEC2A2E343224005DDB13 /* Waveform */ = {
+		5D7C521B2E4A949700AD5022 /* Waveform */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 5D9B85522E3428A400B9C833 /* XCRemoteSwiftPackageReference "Waveform" */;
+			package = 5D7C52172E4A923E00AD5022 /* XCRemoteSwiftPackageReference "Waveform" */;
 			productName = Waveform;
 		};
 /* End XCSwiftPackageProductDependency section */

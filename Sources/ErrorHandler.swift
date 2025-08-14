@@ -4,6 +4,7 @@ import Foundation
 
 import SwiftUI
 
+
 extension Error {
     func errorLogging() -> String {
         switch self {
