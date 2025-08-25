@@ -17,162 +17,40 @@ struct ContentView: View {
         HStack {
             VStack {
                 HStack {
-                    Text("Enter Song Name")
-                        .frame(width: 150, height: 25)
-                        .border(Color(.red))
-                    Text("Add Song Button")
-                        .frame(width: 25, height: 25)
-                        .border(Color(.red))
-                }
-                Text("Playlist Name")
-                    .frame(width: 175, height: 25)
-                    .border(Color(.red))
-                ScrollView {
-                    VStack {
-                        Text("Playlist Item 1")
-                        Text("Playlist Item 2")
-                        Text("Playlist Item 3")
-                    }
-                    .frame(width: 150, height: 300)
-                    .border(Color(.red))
-                }
-                Text("Clear Playlist Button")
-                    .frame(width: 175, height: 25)
-                    .border(Color(.red))
-                
-                
-            }
-            .frame(width: 200, height: 400)
-            .border(Color(.red))
-            VStack {
-                Text("Canvas")
-                    .frame(width: 350, height: 300)
-                    .border(Color(.green))
-                HStack {
-                    Text("Playback Button")
-                    .frame(width: 25, height: 25)
-                    .border(Color(.green))
-                    Text("Seeking Bar")
-                    .frame(width: 325, height: 25)
-                    .border(Color(.green))
-                }
-                .border(Color(.green))
-            }
-            .frame(width: 400, height: 400)
-            .border(Color(.blue))
-        }
-    }
-}
-        
-        /*
-        VStack {
-            
-
-            // Graph Canvas
-            Canvas { context, size in
-                if let visualModel = graphManager.visualModel,
-                   let audioFile = audioManager.currentAudioObject?.file
-                {
-                    do {
-                        // What does process audio do? Grabs raw data from the AVAudioFile and processes it via unique downsampling technique and sets as self.dsData. So in a way it's an intiailizer of the WaveformView object.
-                        try visualModel.processAudio(AVFile: audioFile)
+                    // Input Field
+                    TextField("Enter song name: ", text: $song)
+                        .multilineTextAlignment(.center)
+                        .padding(10)
+                        .onSubmit {
+                            do {
+                                let audio = try convertToAudioObject(s: song)
+                                try audioManager.addToPlaylist(audio: audio)
+                                song = ""
+                            } catch {
+                                print((error as? AudioManagerError)?.errorLogging() as Any)
+                            }
+                        }
+                        .foregroundColor(.blue)
                     
-                        // What does drawGraph do? It takes the processed data in the class and converts it into a correpsonding path object via normalization scaling.
-                        let path = try visualModel.drawGraph(rect: displaySize)
-                        context.stroke(path, with: .color(graphManager.graphColor))
-                    } catch {
-                        print((error as? VisualGraphError)?.errorLogging() as Any)
-                    }
-                }
-            }
-            .frame(width: 300, height: 200)
-            .border(Color(.blue))
-            .padding(10)
-            
-            // Play/Pause Button
-            Button(audioManager.isPlaying ? "Pause" : "Play") {
-                do {
-                    if audioManager.player.isPlaying {
-                        try audioManager.pauseAudio()
-                    } else {
-                        try audioManager.playAudio()
-                    }
-                } catch {
-                    print((error as? AudioManagerError)?.errorLogging() as Any)
-                }
-            }
-            .padding(10)
-            
-            // Progress Slider
-            Slider(
-                value: $progressSlider,
-                in: 0...1,
-                onEditingChanged: { isEditing in
-                    audioManager.isManualSeeking = isEditing
-                    if !isEditing {
+                    // Add Song Button
+                    Button("Add Song") {
                         do {
-                            try self.audioManager.manualSeeking(prog: progressSlider)
-                            try audioManager.playAudio()
-                        } catch {
-                            print((error as? AudioManagerError)?.errorLogging() as Any)
-                        }
-                    } else {
-                        do {
-                            progressSlider = audioManager.progress
-                            try audioManager.pauseAudio()
+                            let audio = try convertToAudioObject(s: song)
+                            try audioManager.addToPlaylist(audio: audio)
+                            song = ""
                         } catch {
                             print((error as? AudioManagerError)?.errorLogging() as Any)
                         }
                     }
+                    .padding(10)
                 }
-            )
-            .onChange(of: audioManager.progress) { _, newState in
-                if !audioManager.isManualSeeking {
-                    progressSlider = newState
-                }
-            }
-            
-            // Time and Progress Display
-            Text("\(audioManager.player.currentTime, specifier: "%.0f")")
-            Text("\(audioManager.progress, specifier: "%.1f")")
-            
-            // Playlist Controls
-            Button(isPlaylistShowing ? "Hide Playlist" : "Show Playlist") {
-                isPlaylistShowing.toggle()
-            }
-            .padding(10)
-            
-            Button("Add Song To Playlist") {
-                do {
-                    let audio = try convertToAudioObject(s: song)
-                    try audioManager.addToPlaylist(audio: audio)
-                    song = ""
-                } catch {
-                    print((error as? AudioManagerError)?.errorLogging() as Any)
-                }
-            }
-            .padding(10)
-            
-            TextField("Enter song name: ", text: $song)
-                .multilineTextAlignment(.center)
-                .padding(10)
-                .onSubmit {
-                    do {
-                        let audio = try convertToAudioObject(s: song)
-                        try audioManager.addToPlaylist(audio: audio)
-                        song = ""
-                    } catch {
-                        print((error as? AudioManagerError)?.errorLogging() as Any)
-                    }
-                }
-                .foregroundColor(.blue)
-            
-            Button("Clear playlist.") {
-                audioManager.clearPlaylist()
-            }
-            
-            // Playlist View
-            if isPlaylistShowing {
+                
+                // Playlist Title
+                Text("Playlist")
+                    .frame(width: 175, height: 25)
+                    .border(Color(.red))
+                
+                // Playlist View
                 ScrollView {
                     VStack {
                         ForEach(audioManager.playlist, id: \.self) { audioFile in
@@ -186,19 +64,101 @@ struct ContentView: View {
                             } label: {
                                 HStack {
                                     Text(audioFile.name)
-                                        .foregroundColor(.red)
+                                        .foregroundColor(.blue)
                                 }
                             }
                         }
                     }
                 }
+                .frame(width: 175, height: 250)
+                .border(Color(.red))
+                
+                // Clear Playlist Button
+                Button("Clear playlist.") {
+                    audioManager.clearPlaylist()
+                }
             }
             
+            .frame(width: 200, height: 400)
+            .border(Color(.orange))
             
+            // Canvas View
+            VStack {
+                Canvas { context, size in
+                    if let visualModel = graphManager.visualModel,
+                       let audioFile = audioManager.currentAudioObject?.file
+                    {
+                        do {
+                            // What does process audio do? Grabs raw data from the AVAudioFile and processes it via unique downsampling technique and sets as self.dsData. So in a way it's an intiailizer of the WaveformView object.
+                            try visualModel.processAudio(AVFile: audioFile)
+                        
+                            // What does drawGraph do? It takes the processed data in the class and converts it into a correpsonding path object via normalization scaling.
+                            let path = try visualModel.drawGraph(rect: displaySize)
+                            context.stroke(path, with: .color(graphManager.graphColor))
+                        } catch {
+                            print((error as? VisualGraphError)?.errorLogging() as Any)
+                        }
+                    }
+                }
+                .frame(width: 300, height: 200)
+                .border(Color(.blue))
+                .padding(10)
+                
+                // Playback Button
+                HStack {
+                    Button(audioManager.isPlaying ? "Pause" : "Play") {
+                        do {
+                            if audioManager.player.isPlaying {
+                                try audioManager.pauseAudio()
+                            } else {
+                                try audioManager.playAudio()
+                            }
+                        } catch {
+                            print((error as? AudioManagerError)?.errorLogging() as Any)
+                        }
+                    }
+                    .padding(10)
+                    
+                    // Time Display
+                    Text("\(audioManager.player.currentTime, specifier: "%.1f")")
+                    
+                    // Seeking Bar
+                    Slider(
+                        value: $progressSlider,
+                        in: 0...1,
+                        onEditingChanged: { isEditing in
+                            audioManager.isManualSeeking = isEditing
+                            if !isEditing {
+                                do {
+                                    try self.audioManager.manualSeeking(prog: progressSlider)
+                                    try audioManager.playAudio()
+                                } catch {
+                                    print((error as? AudioManagerError)?.errorLogging() as Any)
+                                }
+                            } else {
+                                do {
+                                    progressSlider = audioManager.progress
+                                    try audioManager.pauseAudio()
+                                } catch {
+                                    print((error as? AudioManagerError)?.errorLogging() as Any)
+                                }
+                            }
+                        }
+                    )
+                    .frame(width: 250, height: 25)
+                    .onChange(of: audioManager.progress) { _, newState in
+                        if !audioManager.isManualSeeking {
+                            progressSlider = newState
+                        }
+                    }
+                }
+                .border(Color(.green))
+            }
+            .frame(width: 400, height: 400)
+            .border(Color(.orange))
         }
     }
 }
-         */
 
 #Preview {
     ContentView()
