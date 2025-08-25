@@ -35,28 +35,9 @@
 		5D6D256E2E345E1500E41CCD /* AudioDemoUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AudioDemoUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
-/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		5DC4416A2E4A894900E82EAC /* Exceptions for "Sources" folder in "AudioDemo" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				AudioApp.swift,
-				AudioManager.swift,
-				ContentView.swift,
-				ErrorHandler.swift,
-				GraphManager.swift,
-				HelperFunctions.swift,
-				VisualProtocol.swift,
-			);
-			target = 5D9B850A2E34235A00B9C833 /* AudioDemo */;
-		};
-/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
-
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		5D26A90A2E345D9C00BEE50C /* Sources */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-				5DC4416A2E4A894900E82EAC /* Exceptions for "Sources" folder in "AudioDemo" target */,
-			);
 			path = Sources;
 			sourceTree = "<group>";
 		};
@@ -122,6 +103,9 @@
 			buildRules = (
 			);
 			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				5D26A90A2E345D9C00BEE50C /* Sources */,
 			);
 			name = AudioDemo;
 			packageProductDependencies = (

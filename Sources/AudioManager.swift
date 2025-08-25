@@ -129,6 +129,7 @@ public class AudioManager: ObservableObject {
 
     func playAudio() throws {
         guard isLoaded else {
+            print("tbh")
             throw AudioManagerError.GenericFailure(funcName: "playAudio")
         }
         do {

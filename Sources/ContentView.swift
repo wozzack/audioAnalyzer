@@ -6,7 +6,7 @@ struct ContentView: View {
     @StateObject var audioManager = AudioManager()
     @StateObject var waveformView = WaveformView()
     @StateObject var graphManager = GraphManager()
-    var displaySize = CGRect(x: 0, y: 0, width: 300, height: 200)
+    var displaySize = CGRect(x: 0, y: 0, width: 300, height: 600)
     
     @State var song: String = "misato"
     @State var errorMessage: String?
@@ -14,12 +14,60 @@ struct ContentView: View {
     @State var progressSlider: Double = 0.0
     
     var body: some View {
+        HStack {
+            VStack {
+                HStack {
+                    Text("Enter Song Name")
+                        .frame(width: 150, height: 25)
+                        .border(Color(.red))
+                    Text("Add Song Button")
+                        .frame(width: 25, height: 25)
+                        .border(Color(.red))
+                }
+                Text("Playlist Name")
+                    .frame(width: 175, height: 25)
+                    .border(Color(.red))
+                ScrollView {
+                    VStack {
+                        Text("Playlist Item 1")
+                        Text("Playlist Item 2")
+                        Text("Playlist Item 3")
+                    }
+                    .frame(width: 150, height: 300)
+                    .border(Color(.red))
+                }
+                Text("Clear Playlist Button")
+                    .frame(width: 175, height: 25)
+                    .border(Color(.red))
+                
+                
+            }
+            .frame(width: 200, height: 400)
+            .border(Color(.red))
+            VStack {
+                Text("Canvas")
+                    .frame(width: 350, height: 300)
+                    .border(Color(.green))
+                HStack {
+                    Text("Playback Button")
+                    .frame(width: 25, height: 25)
+                    .border(Color(.green))
+                    Text("Seeking Bar")
+                    .frame(width: 325, height: 25)
+                    .border(Color(.green))
+                }
+                .border(Color(.green))
+            }
+            .frame(width: 400, height: 400)
+            .border(Color(.blue))
+        }
+    }
+}
+        
+        /*
         VStack {
-            // Title
-            Text("AudioKit Demo")
-                .font(.largeTitle)
-                .padding(20)
             
+
             // Graph Canvas
             Canvas { context, size in
                 if let visualModel = graphManager.visualModel,
@@ -39,7 +87,7 @@ struct ContentView: View {
             }
             .frame(width: 300, height: 200)
             .border(Color(.blue))
-            .padding(20)
+            .padding(10)
             
             // Play/Pause Button
             Button(audioManager.isPlaying ? "Pause" : "Play") {
@@ -53,7 +101,7 @@ struct ContentView: View {
                     print((error as? AudioManagerError)?.errorLogging() as Any)
                 }
             }
-            .padding(20)
+            .padding(10)
             
             // Progress Slider
             Slider(
@@ -92,7 +140,7 @@ struct ContentView: View {
             Button(isPlaylistShowing ? "Hide Playlist" : "Show Playlist") {
                 isPlaylistShowing.toggle()
             }
-            .padding(20)
+            .padding(10)
             
             Button("Add Song To Playlist") {
                 do {
@@ -103,11 +151,11 @@ struct ContentView: View {
                     print((error as? AudioManagerError)?.errorLogging() as Any)
                 }
             }
-            .padding(20)
+            .padding(10)
             
             TextField("Enter song name: ", text: $song)
                 .multilineTextAlignment(.center)
-                .padding(20)
+                .padding(10)
                 .onSubmit {
                     do {
                         let audio = try convertToAudioObject(s: song)
@@ -145,9 +193,12 @@ struct ContentView: View {
                     }
                 }
             }
+            
+            
         }
     }
 }
+         */
 
 #Preview {
     ContentView()
