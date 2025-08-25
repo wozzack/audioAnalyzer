@@ -1,25 +1,11 @@
-/*
- just some janky ui for testing backend
- contentview flow logic: is slider actively being changed? if so, run
- manualSeeking() on slider value and then run playAudio. else, update
- progressSlider and run pauseAudio() so the timer isnt updating when 
- the user is seeking
-
- need to update error handling in accordance with new error system
- */
-
 import AVFoundation
-
 import AudioKit
-
-
-
 import SwiftUI
 
 struct ContentView: View {
     @StateObject var audioManager = AudioManager()
-    @StateObject var graphManager = GraphManager()
     @StateObject var waveformView = WaveformView()
+    @StateObject var graphManager = GraphManager()
     var displaySize = CGRect(x: 0, y: 0, width: 300, height: 200)
     
     @State var song: String = "misato"
@@ -29,87 +15,100 @@ struct ContentView: View {
     
     var body: some View {
         VStack {
+            // Title
             Text("AudioKit Demo")
                 .font(.largeTitle)
                 .padding(20)
             
-            // waveformView.processAudio(AVFile: audioManager.player.audioFile)
-            // waveformView.drawGraph(start: 0, end: Int(audioManager.player.audioFile.length))
-            
-            // main UI for graph interface
-            // need to pass CGRect to drawGraph
-            
-            
+            // Graph Canvas
             Canvas { context, size in
-                if let visualModel = graphManager.visualModel {
+                if let visualModel = graphManager.visualModel,
+                   let audioFile = audioManager.currentAudioObject?.file
+                {
                     do {
-                        // initialize first for testing
-                        try visualModel.processAudio(AVFile: audioManager.currentAudioObject?.file?)
-                        try visualModel.drawGraph(rect: displaySize)
-                    }
-                    catch {
+                        // What does process audio do? Grabs raw data from the AVAudioFile and processes it via unique downsampling technique and sets as self.dsData. So in a way it's an intiailizer of the WaveformView object.
+                        try visualModel.processAudio(AVFile: audioFile)
+                    
+                        // What does drawGraph do? It takes the processed data in the class and converts it into a correpsonding path object via normalization scaling.
+                        let path = try visualModel.drawGraph(rect: displaySize)
+                        context.stroke(path, with: .color(graphManager.graphColor))
+                    } catch {
                         print((error as? VisualGraphError)?.errorLogging() as Any)
                     }
                 }
-                    .frame(width: 300, height: 200)
-                    .border(Color(.blue))
-                
-                Button("Load Waveform") {
-                    try? graphManager.changeGraph(
-                        newGraph: .waveform,
-                        file: audioManager.player.audioFile
-                    )
+            }
+            .frame(width: 300, height: 200)
+            .border(Color(.blue))
+            .padding(20)
+            
+            // Play/Pause Button
+            Button(audioManager.isPlaying ? "Pause" : "Play") {
+                do {
+                    if audioManager.player.isPlaying {
+                        try audioManager.pauseAudio()
+                    } else {
+                        try audioManager.playAudio()
+                    }
+                } catch {
+                    print((error as? AudioManagerError)?.errorLogging() as Any)
                 }
-                
-                Button(audioManager.isPlaying ? "Pause" : "Play") {
-                    do {
-                        if audioManager.player.isPlaying {
-                            try audioManager.pauseAudio()
-                        } else {
+            }
+            .padding(20)
+            
+            // Progress Slider
+            Slider(
+                value: $progressSlider,
+                in: 0...1,
+                onEditingChanged: { isEditing in
+                    audioManager.isManualSeeking = isEditing
+                    if !isEditing {
+                        do {
+                            try self.audioManager.manualSeeking(prog: progressSlider)
                             try audioManager.playAudio()
+                        } catch {
+                            print((error as? AudioManagerError)?.errorLogging() as Any)
                         }
-                    } catch {
-                        print((error as? AudioManagerError)?.errorLogging() as Any)
-                    }
-                }.padding(20)
-                
-                Slider(
-                    value: $progressSlider,
-                    in: 0...1,
-                    onEditingChanged: { isEditing in
-                        audioManager.isManualSeeking = isEditing
-                        if !isEditing {
-                            do {
-                                try self.audioManager.manualSeeking(
-                                    prog: progressSlider)
-                                try audioManager.playAudio()
-                            } catch {
-                                print((error as? AudioManagerError)?.errorLogging() as Any)
-                            }
-                        } else {
-                            do {
-                                progressSlider = audioManager.progress
-                                try audioManager.pauseAudio()
-                            } catch {
-                                print((error as? AudioManagerError)?.errorLogging() as Any)
-                            }
+                    } else {
+                        do {
+                            progressSlider = audioManager.progress
+                            try audioManager.pauseAudio()
+                        } catch {
+                            print((error as? AudioManagerError)?.errorLogging() as Any)
                         }
                     }
-                )
-                .onChange(of: audioManager.progress) {
-                    _, newState in
-                    if !audioManager.isManualSeeking {
-                        progressSlider = newState
-                    }
-                    
                 }
-                Text("\(audioManager.player.currentTime, specifier: "%.0f")")
-                Text("\(audioManager.progress, specifier: "%.1f")")
-                
-                Button(isPlaylistShowing ? "Hide Playlist" : "Show Playlist") {
-                    isPlaylistShowing.toggle()
-                }.padding(20)
-                Button("Add Song To Playlist") {
+            )
+            .onChange(of: audioManager.progress) { _, newState in
+                if !audioManager.isManualSeeking {
+                    progressSlider = newState
+                }
+            }
+            
+            // Time and Progress Display
+            Text("\(audioManager.player.currentTime, specifier: "%.0f")")
+            Text("\(audioManager.progress, specifier: "%.1f")")
+            
+            // Playlist Controls
+            Button(isPlaylistShowing ? "Hide Playlist" : "Show Playlist") {
+                isPlaylistShowing.toggle()
+            }
+            .padding(20)
+            
+            Button("Add Song To Playlist") {
+                do {
+                    let audio = try convertToAudioObject(s: song)
+                    try audioManager.addToPlaylist(audio: audio)
+                    song = ""
+                } catch {
+                    print((error as? AudioManagerError)?.errorLogging() as Any)
+                }
+            }
+            .padding(20)
+            
+            TextField("Enter song name: ", text: $song)
+                .multilineTextAlignment(.center)
+                .padding(20)
+                .onSubmit {
                     do {
                         let audio = try convertToAudioObject(s: song)
                         try audioManager.addToPlaylist(audio: audio)
@@ -117,45 +116,29 @@ struct ContentView: View {
                     } catch {
                         print((error as? AudioManagerError)?.errorLogging() as Any)
                     }
-                    
-                }.padding(20)
-                TextField("Enter song name: ", text: $song)
-                    .multilineTextAlignment(
-                        .center
-                    )
-                    .padding(20)
-                    .onSubmit {
-                        do {
-                            let audio = try audioManager.convertToAudioObject(s: song)
-                            try audioManager.addToPlaylist(audio: audio)
-                            song = ""
-                        } catch {
-                            print((error as? AudioManagerError)?.errorLogging() as Any)
-                        }
-                    }
-                    .foregroundColor(.blue)
-                
-                Button("Clear playlist.") {
-                    audioManager.clearPlaylist()
                 }
-                
-                if isPlaylistShowing {
-                    ScrollView {
-                        VStack {
-                            ForEach(audioManager.playlist, id: \.self) {
-                                audioFile in
-                                Button {
-                                    do {
-                                        try audioManager.loadAudio(audio: audioFile)
-                                        audioManager.isLoaded = true
-                                    } catch {
-                                        print((error as? AudioManagerError)?.errorLogging() as Any)
-                                    }
-                                } label: {
-                                    HStack {
-                                        Text(audioFile.name)
-                                            .foregroundColor(.red)
-                                    }
+                .foregroundColor(.blue)
+            
+            Button("Clear playlist.") {
+                audioManager.clearPlaylist()
+            }
+            
+            // Playlist View
+            if isPlaylistShowing {
+                ScrollView {
+                    VStack {
+                        ForEach(audioManager.playlist, id: \.self) { audioFile in
+                            Button {
+                                do {
+                                    try audioManager.loadAudio(audio: audioFile)
+                                    audioManager.isLoaded = true
+                                } catch {
+                                    print((error as? AudioManagerError)?.errorLogging() as Any)
+                                }
+                            } label: {
+                                HStack {
+                                    Text(audioFile.name)
+                                        .foregroundColor(.red)
                                 }
                             }
                         }

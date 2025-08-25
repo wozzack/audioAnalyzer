@@ -16,7 +16,7 @@ protocol VisualGraph: ObservableObject {
     var graphType: GraphType { get }
     // raw data is used to draw the graph, needs to be processed before drawing
     var rawData: [Any]? { get }
-    var samples: SampleBuffer? { get }
+    var dsData: [Any]? { get }
     func processAudio(AVFile: AVAudioFile) throws
     // canvas stuff
     func drawGraph(rect: CGRect) throws -> Path
@@ -24,7 +24,7 @@ protocol VisualGraph: ObservableObject {
 class WaveformView: VisualGraph, ObservableObject {
     // just two dimensional data, amplitude and time, need to handle downsampling
     var rawData: [Any]? = []
-    var samples: SampleBuffer?
+    var dsData: [Any]? = []
     // unneeded just do in drawGraph
     // var shapeData: [CGPoint]?
     // need to convert to CGPoints
@@ -45,8 +45,7 @@ class WaveformView: VisualGraph, ObservableObject {
         if AVFile == AVFile {
             self.rawData = [AVFile.floatChannelData() as Any]
             self.AVFile = AVFile
-            let sample = try minmaxDownSampling(length: 300, file: AVFile)
-            self.samples = SampleBuffer(samples: sample)
+            self.dsData = try minmaxDownSampling(length: 300, file: AVFile)
 
         } else {
             throw VisualGraphError.GenericFailure(funcName: "processAudio")
@@ -62,14 +61,16 @@ class WaveformView: VisualGraph, ObservableObject {
             //throw VisualGraphError.GenericFailure(funcName: "drawGraph")
         //}
         var pathObject = Path()
-        for data in samples {
+        for data in self.dsData! {
             // convert CGPoint to normalized coordinates
             // shouldnt this be done in processAudio? no, as we can not assume the rect size
-            let normX = rect.origin.x + data.x * rect.width
-            let normY = rect.origin.y + data.y * rect.height
-            let point = CGPoint(x: normX, y: normY)
-            pathObject.addArc(center: point, radius: 1.0, startAngle: .degrees(0), endAngle: .degrees(360), clockwise: true)
+            if let tuple = data as? (x: CGFloat, y: CGFloat) {
+                let normX = rect.origin.x + tuple.0 * rect.width
+                let normY = rect.origin.y + tuple.1 * rect.height
+                let point = CGPoint(x: normX, y: normY)
+                pathObject.addArc(center: point, radius: 1.0, startAngle: .degrees(0), endAngle: .degrees(360), clockwise: true)
+            }
         }
         return pathObject
-    }  
+    }
 }

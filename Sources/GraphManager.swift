@@ -35,13 +35,14 @@ class GraphManager: ObservableObject {
     @Published var graphColor: Color = .blue
     @Published var graphShowing: Bool = false
     
+
     // could change graph type or the audio file itself
     func changeGraph(newGraph: GraphType, file: AVAudioFile) throws {
         clearGraph()
         switch newGraph {
         case .waveform:
             let model = WaveformView()
-            model.processAudio(AVFile: file)
+            try model.processAudio(AVFile: file)
             self.visualModel = model
             self.graphShowing = true
             
@@ -55,7 +56,6 @@ class GraphManager: ObservableObject {
     // maybe have a placeholder text to inform graph needs to be loaded
     func clearGraph() {
         self.visualModel = nil
-        self.samples = nil
         self.graphShowing = false
     }
     

@@ -7,16 +7,24 @@ import SwiftUI
 
 extension Error {
     func errorLogging() -> String {
-        switch self {
-        case let AudioManagerError.GenericFailure(funcName):
-            return "[AudioManagerError] Error in \(funcName)."
-
-        case let GraphManagerError.GenericFailure(funcName):
-            return "[GraphManagerError] Error in \(funcName)."
-
-        case let VisualGraphError.GenericFailure(funcName):
-            return "[VisualProtocolError] Error in \(funcName)."
+        if let audioError = self as? AudioManagerError {
+            switch audioError {
+            case let .GenericFailure(funcName):
+                return "[AudioManagerError] Error in \(funcName)."
+            }
+        } else if let graphError = self as? GraphManagerError {
+            switch graphError {
+            case let .GenericFailure(funcName):
+                return "[GraphManagerError] Error in \(funcName)."
+            }
+        } else if let visualError = self as? VisualGraphError {
+            switch visualError {
+            case let .GenericFailure(funcName):
+                return "[VisualGraphError] Error in \(funcName)."
+            }
+        
         }
+        return "[UnknownError] An unknown error occurred."
     }
 }
 public enum GraphManagerError: Error {

@@ -14,11 +14,13 @@ import Waveform
 func convertToAudioObject(s: String) throws -> AudioObject {
   guard let fileURL = Bundle.main.url(forResource: s, withExtension: "mp3")
             
+            
   else {
     throw AudioManagerError.GenericFailure(funcName: "convertToAudioObject")
   }
+    let AVFile = try convertToAVAudioFile(s: s)
     // cant know duration until self is created
-    let audio = AudioObject(url: fileURL, name: s, duration: , file: convertToAVAudioFile(s: s))
+    let audio = AudioObject(url: fileURL, name: s, duration: AVFile.duration, file: AVFile)
   return audio
 }
 
@@ -43,19 +45,17 @@ func minmaxDownSampling(length: Int, file: AVAudioFile) throws -> [(Float, Float
     }
     let channelCount = Int(buffer.format.channelCount)
 
-    var downSamples: [(Float, Float)] = [()]
+    var downSamples: [(Float, Float)] = []
     for i in 0..<channelCount {
-      var minAmp: Float = 0
-      var maxAmp: Float = .infinity
       let channelData = UnsafeBufferPointer(
         start: buffer.floatChannelData?[i],
         count: Int(buffer.frameLength))
       for j in stride(from: 0, to: Int(buffer.frameLength), by: length) {
-        if downSample[j].0 > channelData[j] {
-          downSample[j].0 = channelData[j]
+        if downSamples[j].0 > channelData[j] {
+          downSamples[j].0 = channelData[j]
         }
-        if downSample[j].1 < channelData[j] {
-          downSample[j].1 = channelData[j]
+        if downSamples[j].1 < channelData[j] {
+          downSamples[j].1 = channelData[j]
         }
       }
     }
@@ -91,7 +91,6 @@ func averageDownSampling(length: Int, file: AVAudioFile) throws -> [Float] {
       downSamples[j] += channelData[j] / Float(channelCount)
     }
     // downSamples is an 1D array of float values that represent the averaged samples
-    return downSamples
-
   }
+    return downSamples
 }
