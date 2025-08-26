@@ -87,19 +87,23 @@ struct ContentView: View {
             // Canvas View
             VStack {
                 Canvas { context, size in
-                    if let audioFile = audioManager.currentAudioObject?.file, audioManager.isLoaded {
+                    if let _ = audioManager.player.file, audioManager.isLoaded {
                         do {
-                            // What does process audio do? Grabs raw data from the AVAudioFile and processes it via unique downsampling technique and sets as self.dsData. So in a way it's an intiailizer of the WaveformView object.
-                            try graphManager.visualModel.processAudio(AVFile: audioFile)
+                            // What does process audio do? Grabs raw data from the AVAudioFile and processes it via unique downsampling technique and sets as self.dsData. So in a way it's an intiailizer of the
+                            try graphManager.visualModel.processAudio(AVFile: audioManager.player.file!)
                         
                             // What does drawGraph do? It takes the processed data in the class and converts it into a correpsonding path object via normalization scaling.
                             let path = try graphManager.visualModel.drawGraph(rect: displaySize)
                             context.stroke(path, with: .color(graphManager.graphColor))
                         } catch {
-                            print("kms")
+                            print("err")
                             print((error as? VisualGraphError)?.errorLogging() as Any)
                         }
+                    } else {
+                        let placeholderText = Text("No audio loaded")
+                        context.draw(placeholderText, at: CGPoint(x: size.width / 2, y: size.height / 2))
                     }
+    
                 }
                 .frame(width: 300, height: 200)
                 .border(Color(.blue))
