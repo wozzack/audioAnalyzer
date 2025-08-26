@@ -60,17 +60,19 @@ class WaveformView: VisualGraph, ObservableObject {
         //else {
             //throw VisualGraphError.GenericFailure(funcName: "drawGraph")
         //}
-        var pathObject = Path()
-        for data in self.dsData! {
-            // convert CGPoint to normalized coordinates
-            // shouldnt this be done in processAudio? no, as we can not assume the rect size
-            if let tuple = data as? (x: CGFloat, y: CGFloat) {
-                let normX = rect.origin.x + tuple.0 * rect.width
-                let normY = rect.origin.y + tuple.1 * rect.height
-                let point = CGPoint(x: normX, y: normY)
-                pathObject.addArc(center: point, radius: 1.0, startAngle: .degrees(0), endAngle: .degrees(360), clockwise: true)
+        
+            var pathObject = Path()
+            for data in self.dsData! {
+                // convert CGPoint to normalized coordinates
+                // shouldnt this be done in processAudio? no, as we can not assume the rect size
+                if let tuple = data as? (x: CGFloat, y: CGFloat) {
+                    let normX = rect.origin.x + tuple.0 * rect.width
+                    let normY = rect.origin.y + tuple.1 * rect.height
+                    let point = CGPoint(x: normX, y: normY)
+                    pathObject.addArc(center: point, radius: 1.0, startAngle: .degrees(0), endAngle: .degrees(360), clockwise: true)
+                }
             }
-        }
+        
         return pathObject
     }
 }

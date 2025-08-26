@@ -29,12 +29,13 @@ enum GraphType {
 class GraphManager: ObservableObject {
     // handles graph loading/changing and graph view modification
 
-    @Published var visualModel: (any VisualGraph)?
-    // not rawData, this is meant to be a layer of abstraction
-    // @Published var samples: SampleBuffer? = visualModel?.samples
+    /// @Published var visualModel: (any VisualGraph)?
+    @Published var visualModel = WaveformView()
     @Published var graphColor: Color = .blue
     @Published var graphShowing: Bool = false
     
+    
+
 
     // could change graph type or the audio file itself
     func changeGraph(newGraph: GraphType, file: AVAudioFile) throws {
@@ -55,7 +56,7 @@ class GraphManager: ObservableObject {
     
     // maybe have a placeholder text to inform graph needs to be loaded
     func clearGraph() {
-        self.visualModel = nil
+        //self.visualModel = nil
         self.graphShowing = false
     }
     

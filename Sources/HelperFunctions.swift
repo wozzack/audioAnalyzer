@@ -43,21 +43,24 @@ func minmaxDownSampling(length: Int, file: AVAudioFile) throws -> [(Float, Float
     else {
       throw AudioManagerError.GenericFailure(funcName: "minmaxDownSampling")
     }
+    try file.read(into: buffer)
     let channelCount = Int(buffer.format.channelCount)
 
     var downSamples: [(Float, Float)] = []
     for i in 0..<channelCount {
-      let channelData = UnsafeBufferPointer(
-        start: buffer.floatChannelData?[i],
-        count: Int(buffer.frameLength))
-      for j in stride(from: 0, to: Int(buffer.frameLength), by: length) {
-        if downSamples[j].0 > channelData[j] {
-          downSamples[j].0 = channelData[j]
+        let channelData = UnsafeBufferPointer(
+            start: buffer.floatChannelData?[i],
+            count: Int(buffer.frameLength))
+        for j in stride(from: 0, to: Int(buffer.frameLength), by: length) {
+            // splits single channel data into chunks of length n, and in that chunk searches for the highest and lowest value to append.
+            // issue is that we need it for all channels, so we need to either average the min and max values across all channels or pick absolutely
+            let chunk = channelData[j..<min(j + length, Int(buffer.frameLength))]
+            let minSample = chunk.min() ?? 0
+            let maxSample = chunk.max() ?? 0
+            // hmmm
+            downSamples[j].0 += minSample / Float(channelCount)
+            downSamples[j].1 += maxSample / Float(channelCount)
         }
-        if downSamples[j].1 < channelData[j] {
-          downSamples[j].1 = channelData[j]
-        }
-      }
     }
     return downSamples
   // downSamples is an array of tuples that represent the min and max samples
