@@ -8,7 +8,7 @@ struct ContentView: View {
     @StateObject var graphManager = GraphManager()
     var displaySize = CGRect(x: 0, y: 0, width: 300, height: 600)
     
-    @State var song: String = "misatowav"
+    @State var song: String = "cheeb-bd"
     @State var errorMessage: String?
     @State var isPlaylistShowing: Bool = false
     @State var progressSlider: Double = 0.0
@@ -90,8 +90,9 @@ struct ContentView: View {
                     if let _ = audioManager.player.file, audioManager.isLoaded {
                         do {
                             //  grabs raw data from the AVAudioFile and processes it via unique downsampling technique, we find issue with the dsData returning nil after it tries the below function
-                            let testFile = try makeDummyAVAudioFile()
-                            try graphManager.visualModel.processAudio(AVFile: testFile)
+                            //let testFile = try makeDummyAVAudioFile()
+                            print("About to call processAudio...")
+                            try graphManager.visualModel.processAudio(AVFile: audioManager.player.file!)
                             
                             // takes the processed data in the class and converts it into a correpsonding path object via normalization scaling.
                             let path = try graphManager.visualModel.drawGraph(rect: displaySize)

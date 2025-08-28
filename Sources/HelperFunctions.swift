@@ -31,54 +31,68 @@ func convertToAVAudioFile(s: String) throws -> AVAudioFile {
       throw AudioManagerError.GenericFailure(funcName: "convertToAVAudioFile")
   }
   let file = try AVAudioFile(forReading: fileURL)
+    //print("File FCD: \(file.floatChannelData()  as Any)")
   return file
 }
 
 func minmaxDownSampling(length: Int, file: AVAudioFile) throws -> [(Float, Float)] {
     
-    var file = try makeDummyAVAudioFile() // not the issue
+    // var file = try makeDummyAVAudioFile() // not the issue
+    // print(file.floatChannelData() as Any)
+    print("Reached minmaxsampling...")
     let format = AVAudioFormat(commonFormat: AVAudioCommonFormat.pcmFormatFloat32,
                                        sampleRate: 44100.0,
-                                       channels: 1,
+                               channels: file.processingFormat.channelCount,
                                        interleaved: true)!
-    print("File Processing Format: \(file.processingFormat)")
-    print("File length: \(file.length)")
-    print("buffer guard checkpoint")
+    print("About to allocate buffer.")
     guard let buffer = AVAudioPCMBuffer(
-        pcmFormat: format, frameCapacity: AVAudioFrameCount(file.length))
-    // guard let buffer = AVAudioPCMBuffer(
-        //pcmFormat: file.processingFormat,
-        //frameCapacity: AVAudioFrameCount(file.length))
-
+        //pcmFormat: format,
+        pcmFormat: file.processingFormat,
+        // literally going to kill myself this is stupid
+        frameCapacity: AVAudioFrameCount(file.length)) // 5 seconds max
     else {
         throw AudioManagerError.GenericFailure(funcName: "minmaxDownSampling buffer allocation failed")
     }
-    
     do {
-        print(buffer.frameLength)
-        print(buffer.frameCapacity)
-        print("about to read into buffer")
+        print("File processing format: \(file.processingFormat)")
+        print("File length: \(file.length)")
+        print("Buffer frame length: \(buffer.frameLength)")
+        print("Buffer frame capacity: \(buffer.frameCapacity)")
+        print("Buffer float channel data: \(buffer.floatChannelData as Any)")
         // what the fuck is happening here, avfaudio error -50
-        try file.read(into: buffer, frameCount: AVAudioFrameCount(file.length))
-        print("finished reading into buffer")
+        do {
+            try file.read(into: buffer, frameCount: AVAudioFrameCount(file.length))
+            if buffer.floatChannelData == nil {
+                print("Float channel data is nil.")
+            }
+            print("Buffer frame length: \(buffer.frameLength)")
+        } catch {
+            print("Error reading audio files: \(error)")
+        }
+        print("Buffer frame length: \(buffer.frameLength)")
         guard buffer.floatChannelData != nil
         else {
+            let _: [(Float, Float)] = (0..<50).map { i in
+                let x = Float(i) / 50.0
+                let minVal = sin(2 * .pi * x)
+                let maxVal = minVal + 0.2 // offset for visualization
+                return (minVal, maxVal)
+            }
             //print(buffer.floatChannelData)
             //return [(1.0, 1.0), (20.0, 20.0), (10.0, 10.0), (100, 100)] // temp fix
             throw VisualGraphError.GenericFailure(funcName: "buffer floatChannelData is nil")
         }
     } catch {
             //throw AudioManagerError.GenericFailure(funcName: "readintobuffer error")
-        // this is where its failing, we know that the file does exist
     }
-    
+    print("Reached downsampling algorithm.")
     let channelCount = Int(buffer.format.channelCount)
     //for remaining fraction samples that can be accounted for by adding one more sample
     let totalSamples = Int(buffer.frameLength) / length + (Int(buffer.frameLength) % length == 0 ? 0 : 1)
     var downSamples: [(Float, Float)] = Array(repeating: (0.0, 0.0), count: totalSamples)
-    for i in 0..<channelCount {
+    for channel in 0..<channelCount {
         let channelData = UnsafeBufferPointer(
-            start: buffer.floatChannelData?[i],
+            start: buffer.floatChannelData?[channel],
             count: Int(buffer.frameLength))
         for j in stride(from: 0, to: Int(buffer.frameLength), by: length) {
             // splits single channel data into chunks of length n, and in that chunk searches for the highest and lowest value to append.
