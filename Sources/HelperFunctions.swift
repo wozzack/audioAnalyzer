@@ -12,7 +12,7 @@ import Waveform
 
 
 func convertToAudioObject(s: String) throws -> AudioObject {
-  guard let fileURL = Bundle.main.url(forResource: s, withExtension: "mp3")
+  guard let fileURL = Bundle.main.url(forResource: s, withExtension: "wav")
             
             
   else {
@@ -25,9 +25,8 @@ func convertToAudioObject(s: String) throws -> AudioObject {
 }
 
 
-
 func convertToAVAudioFile(s: String) throws -> AVAudioFile {
-  guard let fileURL = Bundle.main.url(forResource: s, withExtension: "mp3")
+  guard let fileURL = Bundle.main.url(forResource: s, withExtension: "wav")
   else {
       throw AudioManagerError.GenericFailure(funcName: "convertToAVAudioFile")
   }
@@ -36,16 +35,45 @@ func convertToAVAudioFile(s: String) throws -> AVAudioFile {
 }
 
 func minmaxDownSampling(length: Int, file: AVAudioFile) throws -> [(Float, Float)] {
-  guard let buffer = AVAudioPCMBuffer(
-    pcmFormat: file.processingFormat,
-    frameCapacity: AVAudioFrameCount(file.length))
+    
+    var file = try makeDummyAVAudioFile() // not the issue
+    let format = AVAudioFormat(commonFormat: AVAudioCommonFormat.pcmFormatFloat32,
+                                       sampleRate: 44100.0,
+                                       channels: 1,
+                                       interleaved: true)!
+    print("File Processing Format: \(file.processingFormat)")
+    print("File length: \(file.length)")
+    print("buffer guard checkpoint")
+    guard let buffer = AVAudioPCMBuffer(
+        pcmFormat: format, frameCapacity: AVAudioFrameCount(file.length))
+    // guard let buffer = AVAudioPCMBuffer(
+        //pcmFormat: file.processingFormat,
+        //frameCapacity: AVAudioFrameCount(file.length))
 
     else {
-      throw AudioManagerError.GenericFailure(funcName: "minmaxDownSampling")
+        throw AudioManagerError.GenericFailure(funcName: "minmaxDownSampling buffer allocation failed")
     }
-    try file.read(into: buffer)
+    
+    do {
+        print(buffer.frameLength)
+        print(buffer.frameCapacity)
+        print("about to read into buffer")
+        // what the fuck is happening here, avfaudio error -50
+        try file.read(into: buffer, frameCount: AVAudioFrameCount(file.length))
+        print("finished reading into buffer")
+        guard buffer.floatChannelData != nil
+        else {
+            //print(buffer.floatChannelData)
+            //return [(1.0, 1.0), (20.0, 20.0), (10.0, 10.0), (100, 100)] // temp fix
+            throw VisualGraphError.GenericFailure(funcName: "buffer floatChannelData is nil")
+        }
+    } catch {
+            //throw AudioManagerError.GenericFailure(funcName: "readintobuffer error")
+        // this is where its failing, we know that the file does exist
+    }
+    
     let channelCount = Int(buffer.format.channelCount)
-    // accounts for remaining fraction samples that can be accounted for by adding one more sample
+    //for remaining fraction samples that can be accounted for by adding one more sample
     let totalSamples = Int(buffer.frameLength) / length + (Int(buffer.frameLength) % length == 0 ? 0 : 1)
     var downSamples: [(Float, Float)] = Array(repeating: (0.0, 0.0), count: totalSamples)
     for i in 0..<channelCount {
@@ -55,7 +83,7 @@ func minmaxDownSampling(length: Int, file: AVAudioFile) throws -> [(Float, Float
         for j in stride(from: 0, to: Int(buffer.frameLength), by: length) {
             // splits single channel data into chunks of length n, and in that chunk searches for the highest and lowest value to append.
             // issue is that we need it for all channels, so we need to either average the min and max values across all channels or pick absolutely
-            let chunkIndex = j / length // ???
+            let chunkIndex = j / length
             let chunk = channelData[j..<min(j + length, Int(buffer.frameLength))]
             let minSample = chunk.min() ?? 0
             let maxSample = chunk.max() ?? 0
@@ -67,6 +95,24 @@ func minmaxDownSampling(length: Int, file: AVAudioFile) throws -> [(Float, Float
   // downSamples is an array of tuples that represent the min and max samples
 }
 
+func makeDummyAVAudioFile() throws -> AVAudioFile {
+    let sampleRate: Double = 44100
+    let frameCount: AVAudioFrameCount = 300
+    let format = AVAudioFormat(standardFormatWithSampleRate: sampleRate, channels: 1)!
+    let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frameCount)!
+    buffer.frameLength = frameCount
+
+    let channelData = buffer.floatChannelData![0]
+    for i in 0..<Int(frameCount) {
+        channelData[i] = sin(2 * .pi * Float(i) / Float(frameCount)) // Sine wave
+    }
+
+    // Save buffer to a temporary file for AVAudioFile
+    let tempURL = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("dummy.wav")
+    let audioFile = try AVAudioFile(forWriting: tempURL, settings: format.settings)
+    try audioFile.write(from: buffer)
+    return try AVAudioFile(forReading: tempURL)
+}
 
 func averageDownSampling(length: Int, file: AVAudioFile) throws -> [Float] {
   guard

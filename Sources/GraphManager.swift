@@ -34,9 +34,6 @@ class GraphManager: ObservableObject {
     @Published var graphColor: Color = .blue
     @Published var graphShowing: Bool = false
     
-    
-
-
     // could change graph type or the audio file itself
     func changeGraph(newGraph: GraphType, file: AVAudioFile) throws {
         clearGraph()

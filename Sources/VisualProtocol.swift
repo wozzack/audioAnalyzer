@@ -46,7 +46,6 @@ class WaveformView: VisualGraph, ObservableObject {
             self.rawData = [AVFile.floatChannelData() as Any]
             self.AVFile = AVFile
             self.dsData = try minmaxDownSampling(length: 300, file: AVFile)
-
         } else {
             throw VisualGraphError.GenericFailure(funcName: "processAudio")
         }
@@ -56,14 +55,23 @@ class WaveformView: VisualGraph, ObservableObject {
 
     func drawGraph(rect: CGRect) throws -> Path {
         var pathObject = Path()
-        guard let dsData = self.dsData else { return pathObject}
+        guard let dsData = self.dsData
+        else {
+            print("FAILURE at dsData check")
+            return pathObject
+        }
+        print("passed dsData check")
+        print(dsData)
         for data in dsData {
             // convert CGPoint to normalized coordinates
             // shouldnt this be done in processAudio? no, as we can not assume the rect size
             // if let tuple = data as? (x: Float, y: Float) {
+                print("reached loop")
                 let normX = rect.origin.x + CGFloat(data.0) * rect.width
                 let normY = rect.origin.y + CGFloat(data.1) * rect.height
+            
                 let point = CGPoint(x: normX, y: normY)
+                print(point)
                 pathObject.addArc(center: point, radius: 1.0, startAngle: .degrees(0), endAngle: .degrees(360), clockwise: true)
             }
         return pathObject
