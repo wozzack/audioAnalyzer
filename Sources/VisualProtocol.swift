@@ -49,45 +49,22 @@ class WaveformView: VisualGraph, ObservableObject {
             throw VisualGraphError.GenericFailure(funcName: "processAudio")
         }
     }
-    
-    // requires shapeData to be set
 
     func drawGraph(rect: CGRect) throws -> Path {
         print("Reached drawGraph...")
         var pathObject = Path()
         guard let dsData = self.dsData
         else {
-            print("FAILURE at dsData check")
             return pathObject
         }
         print("Current dsData: \(dsData)")
-        let dummyMinMaxData: [(Float, Float)] = (0..<50).map { i in
-            let x = Float(i) / 50.0
-            let minVal = sin(2 * .pi * x)
-            let maxVal = minVal + 0.2 // offset for visualization
-            return (minVal, maxVal)
+        for (i, data) in dsData.enumerated() {
+            let normX = rect.origin.x + CGFloat(i) / CGFloat(max(dsData.count - 1, 1)) * rect.width
+            let minY = rect.midY - CGFloat(data.0) * rect.height / 2
+            let maxY = rect.midY - CGFloat(data.1) * rect.height / 2
+            pathObject.move(to: CGPoint(x: normX, y: minY))
+            pathObject.addLine(to: CGPoint(x: normX, y: maxY))
         }
-        for data in dsData {
-            let normX = rect.origin.x + CGFloat(data.0) / CGFloat(max(dummyMinMaxData.count - 1, 1)) * rect.width
-                    // Y: center and scale amplitude
-                    let minY = rect.midY - CGFloat(data.0) * rect.height / 2
-                    let maxY = rect.midY - CGFloat(data.1) * rect.height / 2
-                    pathObject.move(to: CGPoint(x: normX, y: minY))
-                    pathObject.addLine(to: CGPoint(x: normX, y: maxY))
-        // for data in dsData {
-            // convert CGPoint to normalized coordinates
-            // shouldnt this be done in processAudio? no, as we can not assume the rect size
-            // if let tuple = data as? (x: Float, y: Float) {
-                // print("reached loop")
-            /*
-                let normX = rect.origin.x + CGFloat(data.0) * rect.width
-                let normY = rect.origin.y + CGFloat(data.1) * rect.height
-            
-                let point = CGPoint(x: normX, y: normY)
-                print(point)
-                pathObject.addArc(center: point, radius: 1.0, startAngle: .degrees(0), endAngle: .degrees(360), clockwise: true)
-             */
-            }
         return pathObject
     }
 }

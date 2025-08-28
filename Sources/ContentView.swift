@@ -8,7 +8,7 @@ struct ContentView: View {
     @StateObject var graphManager = GraphManager()
     var displaySize = CGRect(x: 0, y: 0, width: 300, height: 600)
     
-    @State var song: String = "cheeb-bd"
+    @State var song: String = "misatowav"
     @State var errorMessage: String?
     @State var isPlaylistShowing: Bool = false
     @State var progressSlider: Double = 0.0
