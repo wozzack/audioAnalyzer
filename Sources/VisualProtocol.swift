@@ -67,7 +67,7 @@ class WaveformView: VisualGraph, ObservableObject {
             let maxVal = minVal + 0.2 // offset for visualization
             return (minVal, maxVal)
         }
-        for data in dummyMinMaxData {
+        for data in dsData {
             let normX = rect.origin.x + CGFloat(data.0) / CGFloat(max(dummyMinMaxData.count - 1, 1)) * rect.width
                     // Y: center and scale amplitude
                     let minY = rect.midY - CGFloat(data.0) * rect.height / 2

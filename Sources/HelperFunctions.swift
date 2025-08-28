@@ -40,17 +40,17 @@ func minmaxDownSampling(length: Int, file: AVAudioFile) throws -> [(Float, Float
     // var file = try makeDummyAVAudioFile() // not the issue
     // print(file.floatChannelData() as Any)
     print("Reached minmaxsampling...")
-    let format = AVAudioFormat(commonFormat: AVAudioCommonFormat.pcmFormatFloat32,
-                                       sampleRate: 44100.0,
-                               channels: file.processingFormat.channelCount,
-                                       interleaved: true)!
     print("About to allocate buffer.")
+    /*
     guard let buffer = AVAudioPCMBuffer(
         //pcmFormat: format,
         pcmFormat: file.processingFormat,
         // literally going to kill myself this is stupid
         frameCapacity: AVAudioFrameCount(file.length)) // 5 seconds max
+     */
+    guard let buffer = try AVAudioPCMBuffer(file: AVAudioFile(forReading: file.url))
     else {
+        print("Failed to allocate buffer.")
         throw AudioManagerError.GenericFailure(funcName: "minmaxDownSampling buffer allocation failed")
     }
     do {
@@ -60,6 +60,7 @@ func minmaxDownSampling(length: Int, file: AVAudioFile) throws -> [(Float, Float
         print("Buffer frame capacity: \(buffer.frameCapacity)")
         print("Buffer float channel data: \(buffer.floatChannelData as Any)")
         // what the fuck is happening here, avfaudio error -50
+        /*
         do {
             try file.read(into: buffer, frameCount: AVAudioFrameCount(file.length))
             if buffer.floatChannelData == nil {
@@ -69,7 +70,7 @@ func minmaxDownSampling(length: Int, file: AVAudioFile) throws -> [(Float, Float
         } catch {
             print("Error reading audio files: \(error)")
         }
-        print("Buffer frame length: \(buffer.frameLength)")
+         */
         guard buffer.floatChannelData != nil
         else {
             let _: [(Float, Float)] = (0..<50).map { i in
