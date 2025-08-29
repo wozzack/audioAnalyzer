@@ -92,11 +92,11 @@ struct ContentView: View {
                             //  grabs raw data from the AVAudioFile and processes it via unique downsampling technique, we find issue with the dsData returning nil after it tries the below function
                             //let testFile = try makeDummyAVAudioFile()
                             print("About to call processAudio...")
-                            try graphManager.visualModel.processAudio(AVFile: audioManager.player.file!)
+                            try graphManager.visualModel?.processAudio(AVFile: audioManager.player.file!)
                             
                             // takes the processed data in the class and converts it into a correpsonding path object via normalization scaling.
-                            let path = try graphManager.visualModel.drawGraph(rect: displaySize)
-                            context.stroke(path, with: .color(graphManager.graphColor))
+                            let path = try graphManager.visualModel?.drawGraph(rect: displaySize)
+                            context.stroke(path!, with: .color(graphManager.graphColor))
                         } catch {
                             //print("canvas failure")
                             //print((error as? VisualGraphError)?.errorLogging() as Any)

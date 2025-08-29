@@ -11,7 +11,8 @@ import SwiftUI
 import Waveform
 
 
-protocol VisualGraph: ObservableObject {
+protocol VisualGraph: ObservableObject, AnyObject {
+    associatedtype DSType
     // requires that any conforming class has this variable accessible and it is read-only as set is not used
     var graphType: GraphType { get }
     // raw data is used to draw the graph, needs to be processed before drawing
@@ -23,8 +24,9 @@ protocol VisualGraph: ObservableObject {
 }
 class WaveformView: VisualGraph, ObservableObject {
     // just two dimensional data, amplitude and time, need to handle downsampling
+    typealias DSType = [(Float, Float)]
     var rawData: [Any]? = []
-    var dsData: [(Float, Float)]? = []
+    var dsData: DSType? = []
     // unneeded just do in drawGraph
     // var shapeData: [CGPoint]?
     // need to convert to CGPoints
@@ -57,7 +59,7 @@ class WaveformView: VisualGraph, ObservableObject {
         else {
             return pathObject
         }
-        print("Current dsData: \(dsData)")
+        //print("Current dsData: \(dsData)")
         for (i, data) in dsData.enumerated() {
             let normX = rect.origin.x + CGFloat(i) / CGFloat(max(dsData.count - 1, 1)) * rect.width
             let minY = rect.midY - CGFloat(data.0) * rect.height / 2
@@ -66,5 +68,22 @@ class WaveformView: VisualGraph, ObservableObject {
             pathObject.addLine(to: CGPoint(x: normX, y: maxY))
         }
         return pathObject
+    }
+}
+
+class SpectrogramView: VisualGraph, ObservableObject {
+    // time, frequency, color (amplitude)
+    typealias DSType = [(Float, Float, Color)]
+    var rawData: [Any]? = []
+    var dsData: [(Float, Float)]? = []
+    var AVFile: AVAudioFile?
+    var graphType: GraphType = .spectrogram
+    
+    func processAudio(AVFile: AVAudioFile) throws {
+        // implement spectrogram processing
+    }
+    
+    func drawGraph(rect: CGRect) throws -> Path {
+        return Path()
     }
 }

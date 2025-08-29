@@ -36,18 +36,8 @@ func convertToAVAudioFile(s: String) throws -> AVAudioFile {
 }
 
 func minmaxDownSampling(length: Int, file: AVAudioFile) throws -> [(Float, Float)] {
-    
-    // var file = try makeDummyAVAudioFile() // not the issue
-    // print(file.floatChannelData() as Any)
     print("Reached minmaxsampling...")
     print("About to allocate buffer.")
-    /*
-    guard let buffer = AVAudioPCMBuffer(
-        //pcmFormat: format,
-        pcmFormat: file.processingFormat,
-        // literally going to kill myself this is stupid
-        frameCapacity: AVAudioFrameCount(file.length)) // 5 seconds max
-     */
     guard let buffer = try AVAudioPCMBuffer(file: AVAudioFile(forReading: file.url))
     else {
         print("Failed to allocate buffer.")
@@ -59,26 +49,9 @@ func minmaxDownSampling(length: Int, file: AVAudioFile) throws -> [(Float, Float
         print("Buffer frame length: \(buffer.frameLength)")
         print("Buffer frame capacity: \(buffer.frameCapacity)")
         print("Buffer float channel data: \(buffer.floatChannelData as Any)")
-        // what the fuck is happening here, avfaudio error -50
-        /*
-        do {
-            try file.read(into: buffer, frameCount: AVAudioFrameCount(file.length))
-            if buffer.floatChannelData == nil {
-                print("Float channel data is nil.")
-            }
-            print("Buffer frame length: \(buffer.frameLength)")
-        } catch {
-            print("Error reading audio files: \(error)")
-        }
-         */
         guard buffer.floatChannelData != nil
         else {
-            let _: [(Float, Float)] = (0..<50).map { i in
-                let x = Float(i) / 50.0
-                let minVal = sin(2 * .pi * x)
-                let maxVal = minVal + 0.2 // offset for visualization
-                return (minVal, maxVal)
-            }
+
             //print(buffer.floatChannelData)
             //return [(1.0, 1.0), (20.0, 20.0), (10.0, 10.0), (100, 100)] // temp fix
             throw VisualGraphError.GenericFailure(funcName: "buffer floatChannelData is nil")
@@ -131,13 +104,10 @@ func makeDummyAVAudioFile() throws -> AVAudioFile {
 
 func averageDownSampling(length: Int, file: AVAudioFile) throws -> [Float] {
   guard
-    let buffer = AVAudioPCMBuffer(
-      pcmFormat: file.processingFormat,
-      frameCapacity: AVAudioFrameCount(file.length))
+    let buffer = try AVAudioPCMBuffer(file: try AVAudioFile(forReading: file.url))
   else {
       throw AudioManagerError.GenericFailure(funcName: "generalizedDownSampling")
   }
-  try file.read(into: buffer)
   guard let samples = buffer.floatChannelData
   else {
       throw AudioManagerError.GenericFailure(funcName: "generalizedDownSampling")

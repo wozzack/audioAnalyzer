@@ -29,8 +29,8 @@ enum GraphType {
 class GraphManager: ObservableObject {
     // handles graph loading/changing and graph view modification
 
-    /// @Published var visualModel: (any VisualGraph)?
-    @Published var visualModel = WaveformView()
+    @Published var visualModel: (any VisualGraph)?
+    //@Published var visualModel = WaveformView()
     @Published var graphColor: Color = .blue
     @Published var graphShowing: Bool = false
     
@@ -45,13 +45,14 @@ class GraphManager: ObservableObject {
             self.graphShowing = true
             
         case .spectrogram:
-            // implement spectrogram model
+            let model = SpectrogramView()
+            try model.processAudio(AVFile: file)
+            self.visualModel = model
+            self.graphShowing = true
             throw VisualGraphError.GenericFailure(funcName: "changeGraph")
         }
-        
     }
-    
-    // maybe have a placeholder text to inform graph needs to be loaded
+
     func clearGraph() {
         //self.visualModel = nil
         self.graphShowing = false
@@ -60,7 +61,4 @@ class GraphManager: ObservableObject {
     func changeGraphColor(color: Color) {
         self.graphColor = color
     }
-
-    // needs to pass view to canvas
-
 }
