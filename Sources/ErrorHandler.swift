@@ -5,6 +5,19 @@ import Foundation
 import SwiftUI
 
 
+public enum GraphManagerError: Error {
+    case GenericFailure(funcName: String)
+
+}
+public enum VisualGraphError: Error {
+    case GenericFailure(funcName: String)
+
+}
+public enum AudioManagerError: Error {
+    case GenericFailure(funcName: String)
+
+}
+
 extension Error {
     func errorLogging() -> String {
         if let audioError = self as? AudioManagerError {
@@ -27,15 +40,4 @@ extension Error {
         return "[UnknownError] An unknown error occurred."
     }
 }
-public enum GraphManagerError: Error {
-    case GenericFailure(funcName: String)
 
-}
-public enum VisualGraphError: Error {
-    case GenericFailure(funcName: String)
-
-}
-public enum AudioManagerError: Error {
-    case GenericFailure(funcName: String)
-
-}

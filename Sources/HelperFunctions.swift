@@ -36,11 +36,8 @@ func convertToAVAudioFile(s: String) throws -> AVAudioFile {
 }
 
 func minmaxDownSampling(length: Int, file: AVAudioFile) throws -> [(Float, Float)] {
-    print("Reached minmaxsampling...")
-    print("About to allocate buffer.")
     guard let buffer = try AVAudioPCMBuffer(file: AVAudioFile(forReading: file.url))
     else {
-        print("Failed to allocate buffer.")
         throw AudioManagerError.GenericFailure(funcName: "minmaxDownSampling buffer allocation failed")
     }
     do {
@@ -51,9 +48,6 @@ func minmaxDownSampling(length: Int, file: AVAudioFile) throws -> [(Float, Float
         print("Buffer float channel data: \(buffer.floatChannelData as Any)")
         guard buffer.floatChannelData != nil
         else {
-
-            //print(buffer.floatChannelData)
-            //return [(1.0, 1.0), (20.0, 20.0), (10.0, 10.0), (100, 100)] // temp fix
             throw VisualGraphError.GenericFailure(funcName: "buffer floatChannelData is nil")
         }
     } catch {
