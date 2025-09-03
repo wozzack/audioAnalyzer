@@ -36,24 +36,29 @@ func convertToAVAudioFile(s: String) throws -> AVAudioFile {
 }
 
 func minmaxDownSampling(length: Int, file: AVAudioFile) throws -> [(Float, Float)] {
-    guard let buffer = try AVAudioPCMBuffer(file: AVAudioFile(forReading: file.url))
+    //print("Reached minmaxDownSampling...")
+    guard let buffer = try AVAudioPCMBuffer(file: AVAudioFile(forReading: file.url)), buffer.floatChannelData != nil
     else {
-        throw AudioManagerError.GenericFailure(funcName: "minmaxDownSampling buffer allocation failed")
+        throw VisualGraphError.GenericFailure(funcName: "minmaxDownSampling guard check failed.")
     }
+    
     do {
+        /*
         print("File processing format: \(file.processingFormat)")
         print("File length: \(file.length)")
         print("Buffer frame length: \(buffer.frameLength)")
         print("Buffer frame capacity: \(buffer.frameCapacity)")
         print("Buffer float channel data: \(buffer.floatChannelData as Any)")
+         */
         guard buffer.floatChannelData != nil
         else {
             throw VisualGraphError.GenericFailure(funcName: "buffer floatChannelData is nil")
         }
     } catch {
-            //throw AudioManagerError.GenericFailure(funcName: "readintobuffer error")
+            throw VisualGraphError.GenericFailure(funcName: "readintobuffer error")
     }
-    print("Reached downsampling algorithm.")
+    
+    //print("Reached downsampling algorithm.")
     let channelCount = Int(buffer.format.channelCount)
     //for remaining fraction samples that can be accounted for by adding one more sample
     let totalSamples = Int(buffer.frameLength) / length + (Int(buffer.frameLength) % length == 0 ? 0 : 1)
@@ -96,30 +101,3 @@ func makeDummyAVAudioFile() throws -> AVAudioFile {
     return try AVAudioFile(forReading: tempURL)
 }
 
-func averageDownSampling(length: Int, file: AVAudioFile) throws -> [Float] {
-  guard
-    let buffer = try AVAudioPCMBuffer(file: try AVAudioFile(forReading: file.url))
-  else {
-      throw AudioManagerError.GenericFailure(funcName: "generalizedDownSampling")
-  }
-  guard let samples = buffer.floatChannelData
-  else {
-      throw AudioManagerError.GenericFailure(funcName: "generalizedDownSampling")
-  }
-
-  let channelCount = Int(buffer.format.channelCount)
-
-  // one dimensional once we apply averaging function
-  var downSamples: [Float] = []
-
-  for i in 0..<channelCount {
-    let channelData = UnsafeBufferPointer(
-      start: samples[i],
-      count: Int(buffer.frameLength))
-    for j in stride(from: 0, to: Int(buffer.frameLength), by: length) {
-      downSamples[j] += channelData[j] / Float(channelCount)
-    }
-    // downSamples is an 1D array of float values that represent the averaged samples
-  }
-    return downSamples
-}

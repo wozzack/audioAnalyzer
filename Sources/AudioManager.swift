@@ -129,7 +129,6 @@ public class AudioManager: ObservableObject {
 
     func playAudio() throws {
         guard isLoaded else {
-            print("tbh")
             throw AudioManagerError.GenericFailure(funcName: "playAudio")
         }
         do {
@@ -150,7 +149,7 @@ public class AudioManager: ObservableObject {
             try stopTimer()
             isPlaying = false
         } catch {
-            print("didnt pause timer")
+            throw AudioManagerError.GenericFailure(funcName: "pauseAudio")
         }
     }
 
@@ -165,7 +164,7 @@ public class AudioManager: ObservableObject {
             isPlaying = false
             progress = 0.0
         } catch {
-            print("didnt stop timer")
+            throw AudioManagerError.GenericFailure(funcName: "stopAudio")
         }
 
     }

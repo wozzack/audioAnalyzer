@@ -42,7 +42,6 @@ class WaveformView: VisualGraph, ObservableObject {
 
     // need to handle shapeData
     func processAudio(AVFile: AVAudioFile) throws {
-        print("Reached processAudio...")
         if AVFile == AVFile {
             self.rawData = [AVFile.floatChannelData() as Any]
             self.AVFile = AVFile
@@ -53,13 +52,12 @@ class WaveformView: VisualGraph, ObservableObject {
     }
 
     func drawGraph(rect: CGRect) throws -> Path {
-        print("Reached drawGraph...")
         var pathObject = Path()
         guard let dsData = self.dsData
         else {
-            return pathObject
+            throw VisualGraphError.GenericFailure(funcName: "drawGraph guard dsData")
         }
-        //print("Current dsData: \(dsData)")
+        // print("Current dsData: \(dsData)")
         for (i, data) in dsData.enumerated() {
             let normX = rect.origin.x + CGFloat(i) / CGFloat(max(dsData.count - 1, 1)) * rect.width
             let minY = rect.midY - CGFloat(data.0) * rect.height / 2

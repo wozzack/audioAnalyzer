@@ -39,22 +39,29 @@ class GraphManager: ObservableObject {
         clearGraph()
         switch newGraph {
         case .waveform:
-            let model = WaveformView()
-            try model.processAudio(AVFile: file)
-            self.visualModel = model
-            self.graphShowing = true
+            do {
+                let model = WaveformView()
+                try model.processAudio(AVFile: file)
+                self.visualModel = model
+                self.graphShowing = true
+            } catch {
+                throw GraphManagerError.GenericFailure(funcName: "GraphManager changeGraph waveform case")
+            }
             
         case .spectrogram:
-            let model = SpectrogramView()
-            try model.processAudio(AVFile: file)
-            self.visualModel = model
-            self.graphShowing = true
-            throw VisualGraphError.GenericFailure(funcName: "changeGraph")
+            do {
+                let model = SpectrogramView()
+                try model.processAudio(AVFile: file)
+                self.visualModel = model
+                self.graphShowing = true
+            } catch {
+                throw GraphManagerError.GenericFailure(funcName: "GraphManager changeGraph spectrogram case")
+                
+            }
         }
     }
 
     func clearGraph() {
-        //self.visualModel = nil
         self.graphShowing = false
     }
     

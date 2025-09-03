@@ -59,6 +59,9 @@ struct ContentView: View {
                             Button {
                                 do {
                                     try audioManager.loadAudio(audio: audioFile)
+                                    // loadAudio sets audioManager.player.file to be the current file we need
+                                    try graphManager.changeGraph(newGraph: .waveform, file: audioManager.player.file!)
+                                    try graphManager.visualModel?.processAudio(AVFile: audioManager.player.file!)
                                     audioManager.isLoaded = true
                                 } catch {
                                     print((error as? AudioManagerError)?.errorLogging() as Any)
@@ -81,7 +84,7 @@ struct ContentView: View {
                 }
             }
             
-            .frame(width: 200, height: 400)
+            .frame(width: 200, height: 450)
             .border(Color(.orange))
             
             // Canvas View
@@ -90,22 +93,22 @@ struct ContentView: View {
                     if let _ = audioManager.player.file, audioManager.isLoaded {
                         do {
                             //  grabs raw data from the AVAudioFile and processes it via unique downsampling technique, we find issue with the dsData returning nil after it tries the below function
-                            //let testFile = try makeDummyAVAudioFile()
-                            print("About to call processAudio...")
-                            try graphManager.visualModel?.processAudio(AVFile: audioManager.player.file!)
-                            
-                            // takes the processed data in the class and converts it into a correpsonding path object via normalization scaling.
-                            let path = try graphManager.visualModel?.drawGraph(rect: displaySize)
-                            context.stroke(path!, with: .color(graphManager.graphColor))
+                            if let path = try graphManager.visualModel?.drawGraph(rect: displaySize) {
+                                context.stroke(path, with: .color(graphManager.graphColor))
+                            } else {
+                                throw VisualGraphError.GenericFailure(funcName: "Canvas path guard")
+                            }
                         } catch {
-                            //print("canvas failure")
-                            //print((error as? VisualGraphError)?.errorLogging() as Any)
+                            print((error as? VisualGraphError)?.errorLogging() as Any)
                         }
                     } else {
                         let placeholderText = Text("No audio loaded")
                         context.draw(placeholderText, at: CGPoint(x: size.width / 2, y: size.height / 2))
                     }
     
+                }
+                .onChange(of: audioManager.player.file) { _, newState in
+
                 }
                 .frame(width: 300, height: 200)
                 .border(Color(.blue))
