@@ -13,15 +13,6 @@ import SwiftUI
 
 import Waveform
 
-func errorHandler(_ error: Error) {
-    // optional cast in case of missing AudioManagerError
-    if let audioError = error as? AudioManagerError {
-        print(audioError.errorLogging())
-    } else {
-        print("Unhandled error.")
-    }
-}
-
 struct AudioObject: Identifiable, Hashable {
     let id = UUID()
     let url: URL

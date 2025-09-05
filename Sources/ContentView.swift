@@ -28,9 +28,11 @@ struct ContentView: View {
                                 // will also present as AudioManagerError
                                 try audioManager.addToPlaylist(audio: audio)
                                 song = ""
-                            } catch {
-                                // print the error 
-                                print((error as? AudioManagerError)?.errorLogging() as Any)
+                            } catch let error {
+                                // print the error
+                                // errorLogger(error: error)
+                                // print the error description if it conforms to AudioManagerError
+                                print(errorHandler(error))
                             }
                         }
                         .foregroundColor(.blue)
@@ -41,10 +43,10 @@ struct ContentView: View {
                             let audio = try convertToAudioObject(s: song)
                             try audioManager.addToPlaylist(audio: audio)
                             song = ""
-                        } catch {
+                        } catch let error {
                             //print(error.errorLogging())
                             //print("Raw error: \(error)")
-                            print((error as? AudioManagerError)?.errorLogging() as Any)
+                            print(errorHandler(error))
                         }
                     }
                     .padding(10)
@@ -66,8 +68,8 @@ struct ContentView: View {
                                     try graphManager.changeGraph(newGraph: .waveform, file: audioManager.player.file!)
                                     try graphManager.visualModel?.processAudio(AVFile: audioManager.player.file!)
                                     audioManager.isLoaded = true
-                                } catch {
-                                    print((error as? AudioManagerError)?.errorLogging() as Any)
+                                } catch let error {
+                                    print(errorHandler(error))
                                 }
                             } label: {
                                 HStack {
@@ -101,8 +103,8 @@ struct ContentView: View {
                             } else {
                                 throw VisualGraphError.GenericFailure(funcName: "Canvas path guard")
                             }
-                        } catch {
-                            print((error as? VisualGraphError)?.errorLogging() as Any)
+                        } catch let error {
+                            print(errorHandler(error))
                         }
                     } else {
                         let placeholderText = Text("No audio loaded")
@@ -126,8 +128,8 @@ struct ContentView: View {
                             } else {
                                 try audioManager.playAudio()
                             }
-                        } catch {
-                            print((error as? AudioManagerError)?.errorLogging() as Any)
+                        } catch let error {
+                            print(errorHandler(error))
                         }
                     }
                     .padding(10)
@@ -145,15 +147,15 @@ struct ContentView: View {
                                 do {
                                     try self.audioManager.manualSeeking(prog: progressSlider)
                                     try audioManager.playAudio()
-                                } catch {
-                                    print((error as? AudioManagerError)?.errorLogging() as Any)
+                                } catch let error {
+                                    print(errorHandler(error))
                                 }
                             } else {
                                 do {
                                     progressSlider = audioManager.progress
                                     try audioManager.pauseAudio()
-                                } catch {
-                                    print((error as? AudioManagerError)?.errorLogging() as Any)
+                                } catch let error {
+                                    print(errorHandler(error))
                                 }
                             }
                         }
