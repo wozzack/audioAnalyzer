@@ -20,6 +20,7 @@ public enum AudioManagerError: Error {
 
 extension Error {
     func errorLogging() -> String {
+        // if the error given by swift is of type X, then errorLogging switches on the error and returns a string.
         if let visualGraph = self as? VisualGraphError {
             switch visualGraph {
             case let .GenericFailure(funcName):
@@ -37,7 +38,6 @@ extension Error {
             case let .GenericFailure(funcName):
                 return "AudioManagerError in \(funcName)."
             }
-                                
         }
         else {
             return "Unhandled error."

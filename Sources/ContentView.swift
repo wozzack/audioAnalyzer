@@ -23,10 +23,13 @@ struct ContentView: View {
                         .padding(10)
                         .onSubmit {
                             do {
+                                // at failure will return AudioManagerError
                                 let audio = try convertToAudioObject(s: song)
+                                // will also present as AudioManagerError
                                 try audioManager.addToPlaylist(audio: audio)
                                 song = ""
                             } catch {
+                                // print the error 
                                 print((error as? AudioManagerError)?.errorLogging() as Any)
                             }
                         }
@@ -108,7 +111,7 @@ struct ContentView: View {
     
                 }
                 .onChange(of: audioManager.player.file) { _, newState in
-
+                    // reruns canvas closure if loaded file is changed.
                 }
                 .frame(width: 300, height: 200)
                 .border(Color(.blue))
