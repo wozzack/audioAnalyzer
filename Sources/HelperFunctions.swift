@@ -14,14 +14,14 @@ import Waveform
 func convertToAudioObject(s: String) throws -> AudioObject {
     guard let fileURL = Bundle.main.url(forResource: s, withExtension: "wav")
     else {
-        throw AudioManagerError.GenericFailure(funcName: "convertToAudioObject")
+        throw AudioManagerError.GenericFailure(funcName: "convertToAudioObject", reason: "Failed to find file URL for resource \(s).wav")
     }
     do {
         let AVFile = try AVAudioFile(forReading: fileURL)
         let audio = AudioObject(url: fileURL, name: s, duration: AVFile.duration, file: AVFile)
         return audio
     } catch {
-        throw AudioManagerError.GenericFailure(funcName: "convertToAudioObject")
+        throw AudioManagerError.GenericFailure(funcName: "convertToAudioObject", reason: "failed to create AVAudioFile for resource \(s).wav")
     }
 }
 
@@ -29,26 +29,27 @@ func convertToAudioObject(s: String) throws -> AudioObject {
 func convertToAVAudioFile(s: String) throws -> AVAudioFile {
     guard let fileURL = Bundle.main.url(forResource: s, withExtension: "wav")
     else {
-        throw AudioManagerError.GenericFailure(funcName: "convertToAVAudioFile")
+        throw AudioManagerError.GenericFailure(funcName: "convertToAVAudioFile", reason: "failed to find file URL for resource \(s).wav")
     }
     do {
         let file = try AVAudioFile(forReading: fileURL)
         return file
     } catch {
-        throw AudioManagerError.GenericFailure(funcName: "convertToAVAudioFile")
+        throw AudioManagerError.GenericFailure(funcName: "convertToAVAudioFile", reason: "failed to create AVAudioFile for resource \(s).wav")
     }
 }
 
 func minmaxDownSampling(length: Int, file: AVAudioFile) throws -> [(Float, Float)] {
     guard let buffer = try AVAudioPCMBuffer(file: AVAudioFile(forReading: file.url)), buffer.floatChannelData != nil
     else {
-        throw VisualGraphError.GenericFailure(funcName: "minmaxDownSampling")
+        throw VisualGraphError.GenericFailure(funcName: "minmaxDownSampling", reason: "failed to create AVAudioPCMBuffer from AVAudioFile")
     }
     
     do {
-        guard buffer.floatChannelData != nil, buffer.frameLength > 0
+        // changed to below framelength for error system checking
+        guard buffer.floatChannelData != nil, buffer.frameLength < 0
         else {
-            throw VisualGraphError.GenericFailure(funcName: "mixmaxDownSampling")
+            throw VisualGraphError.GenericFailure(funcName: "mixmaxDownSampling", reason: "buffer has no floatChannelData or frameLength is invalid")
         }
         let channelCount = Int(buffer.format.channelCount)
         //for remaining fraction samples that can be accounted for by adding one more sample
@@ -73,7 +74,7 @@ func minmaxDownSampling(length: Int, file: AVAudioFile) throws -> [(Float, Float
         return downSamples
         // end of do clause
     } catch {
-            throw VisualGraphError.GenericFailure(funcName: "minmaxDownSampling")
+        throw VisualGraphError.GenericFailure(funcName: "minmaxDownSampling", reason: "failed during downsampling process for AVAudioFile")
     }
 }
 

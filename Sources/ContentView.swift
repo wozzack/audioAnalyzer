@@ -101,7 +101,7 @@ struct ContentView: View {
                             if let path = try graphManager.visualModel?.drawGraph(rect: displaySize) {
                                 context.stroke(path, with: .color(graphManager.graphColor))
                             } else {
-                                throw VisualGraphError.GenericFailure(funcName: "Canvas path guard")
+                                throw VisualGraphError.GenericFailure(funcName: "drawGraph", reason: "failed Canvas guard checks (audioManager.player.file and audioManager.isLoaded)")
                             }
                         } catch let error {
                             print(errorHandler(error))

@@ -52,7 +52,7 @@ public class AudioManager: ObservableObject {
 
         guard currentAudioObject != nil
         else {
-            throw AudioManagerError.GenericFailure(funcName: "manualSeeking")
+            throw AudioManagerError.GenericFailure(funcName: "manualSeeking", reason: "no currentAudioObject loaded")
         }
 
         if let previousSeek = previousSeekTime, Date().timeIntervalSince(previousSeek) < 0.1 {
@@ -112,7 +112,7 @@ public class AudioManager: ObservableObject {
     func stopTimer() throws {
         guard timeToken != nil
         else {
-            throw AudioManagerError.GenericFailure(funcName: "stopTimer")
+            throw AudioManagerError.GenericFailure(funcName: "stopTimer", reason: "timeToken is nil, cannot stop timer")
         }
         timeToken?.invalidate()
         timeToken = nil
@@ -120,7 +120,7 @@ public class AudioManager: ObservableObject {
 
     func playAudio() throws {
         guard isLoaded else {
-            throw AudioManagerError.GenericFailure(funcName: "playAudio")
+            throw AudioManagerError.GenericFailure(funcName: "playAudio", reason: "audio is not loaded, cannot play audio")
         }
         do {
             player.start()
@@ -133,21 +133,21 @@ public class AudioManager: ObservableObject {
 
     func pauseAudio() throws {
         guard isLoaded else {
-            throw AudioManagerError.GenericFailure(funcName: "pauseAudio")
+            throw AudioManagerError.GenericFailure(funcName: "pauseAudio", reason: "audio is not loaded, cannot pause audio")
         }
         do {
             player.pause()
             try stopTimer()
             isPlaying = false
         } catch {
-            throw AudioManagerError.GenericFailure(funcName: "pauseAudio")
+            throw AudioManagerError.GenericFailure(funcName: "pauseAudio", reason: "failed to pause audio and/or stop timer")
         }
     }
 
     // basically pauseAudio() but we reset the progress to 0 too
     func stopAudio() throws {
         guard isLoaded else {
-            throw AudioManagerError.GenericFailure(funcName: "stopAudio")
+            throw AudioManagerError.GenericFailure(funcName: "stopAudio", reason: "audio is not loaded, cannot stop audio")
         }
         do {
             player.stop()
@@ -155,14 +155,14 @@ public class AudioManager: ObservableObject {
             isPlaying = false
             progress = 0.0
         } catch {
-            throw AudioManagerError.GenericFailure(funcName: "stopAudio")
+            throw AudioManagerError.GenericFailure(funcName: "stopAudio", reason: "failed to stop audio and/or stop timer")
         }
 
     }
 
     func addToPlaylist(audio: AudioObject) throws {
         guard !playlist.contains(audio) else {
-            throw AudioManagerError.GenericFailure(funcName: "addToPlaylist")
+            throw AudioManagerError.GenericFailure(funcName: "addToPlaylist", reason: "audio already exists in playlist, cannot add duplicate")
         }
         playlist.append(audio)
     }
@@ -181,13 +181,13 @@ public class AudioManager: ObservableObject {
             currentAudioObject = audio
             // startObservingTime()
         } catch {
-            throw AudioManagerError.GenericFailure(funcName: "loadAudio")
+            throw AudioManagerError.GenericFailure(funcName: "loadAudio", reason: "failed to load audio file into player")
         }
     }
 
     func removeFromPlaylist(audio: AudioObject) throws {
         guard let index = playlist.firstIndex(of: audio) else {
-            throw AudioManagerError.GenericFailure(funcName: "removeFromPlaylist")
+            throw AudioManagerError.GenericFailure(funcName: "removeFromPlaylist", reason: "audio does not exist in playlist, cannot remove")
         }
         playlist.remove(at: index)
     }
