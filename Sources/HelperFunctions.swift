@@ -47,7 +47,7 @@ func minmaxDownSampling(length: Int, file: AVAudioFile) throws -> [(Float, Float
     
     do {
         // changed to below framelength for error system checking
-        guard buffer.floatChannelData != nil, buffer.frameLength < 0
+        guard buffer.floatChannelData != nil, buffer.frameLength > 0
         else {
             throw VisualGraphError.GenericFailure(funcName: "mixmaxDownSampling", reason: "buffer has no floatChannelData or frameLength is invalid")
         }
