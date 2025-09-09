@@ -12,7 +12,20 @@ import Waveform
 
 
 func convertToAudioObject(s: String) throws -> AudioObject {
-    guard let fileURL = Bundle.main.url(forResource: s, withExtension: "wav")
+    // confirm it exists in our app bundle, want to be general for any file type
+    // i want it to be able to auto detect file type by given string, will search in bundle and if multiple exists of diifferent file type, ask to specify file type in the string itself
+    // given "misato.mp3", it will search for misato.mp3 in the bundle and if it exists, return the file URL for that resource
+    let regexFilePattern = try Regex("[a-z]+\\.[wav, flac, mp3, m4a, aac]{1}")
+    
+    guard s.contains(regexFilePattern)
+    else {
+        throw AudioManagerError.GenericFailure(funcName: "convertToAudioObject", reason: "Invalid string input.")
+    }
+        // locate file type and then extract the file name and extension from the string
+    let fileExtension = String(s.split(separator: ".")[1])
+    let fileName = String(s.split(separator: ".")[0])
+    // if confirms to pattern, then start processing the string to extract the file name and extension
+    guard let fileURL = Bundle.main.url(forResource: fileName, withExtension: fileExtension)
     else {
         throw AudioManagerError.GenericFailure(funcName: "convertToAudioObject", reason: "Failed to find file URL for resource \(s).wav")
     }
@@ -27,7 +40,16 @@ func convertToAudioObject(s: String) throws -> AudioObject {
 
 
 func convertToAVAudioFile(s: String) throws -> AVAudioFile {
-    guard let fileURL = Bundle.main.url(forResource: s, withExtension: "wav")
+    var regexFilePattern = "[a-z]+/.[wav, flac, mp3, m4a, aac]"
+    guard s.contains(regexFilePattern)
+    else {
+        throw AudioManagerError.GenericFailure(funcName: "convertToAVAudioFile", reason: "Invalid string input.")
+    }
+        // locate file type and then extract the file name and extension from the string
+    let fileExtension = String(s.split(separator: ".")[1])
+    let fileName = String(s.split(separator: ".")[0])
+    // want to be general for any file type
+    guard let fileURL = Bundle.main.url(forResource: fileName, withExtension: fileExtension)
     else {
         throw AudioManagerError.GenericFailure(funcName: "convertToAVAudioFile", reason: "failed to find file URL for resource \(s).wav")
     }
@@ -96,4 +118,3 @@ func makeDummyAVAudioFile() throws -> AVAudioFile {
     try audioFile.write(from: buffer)
     return try AVAudioFile(forReading: tempURL)
 }
-

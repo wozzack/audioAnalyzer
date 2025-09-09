@@ -17,8 +17,12 @@ class AudioManagerTestSuite {
         print("Ending AudioManager Test Suite.")
     }
     // need tests for seeking bar, playlist, loading audio, and convert helper functions
-    
-    @Test func
+    // lossy formats: mp3, aac
+    // lossless formats: flac, alac
+    // uncompressed formats: wav, aiff
+    @Test func stringsToPlaylist () {
+        let strings = ["misato.mp3", "asuka.wav", "rei.flac", "kaji.m4a"]
+    }
 }
 
 
