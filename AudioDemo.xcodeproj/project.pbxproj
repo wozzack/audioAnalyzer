@@ -32,9 +32,9 @@
 			path = Sources;
 			sourceTree = "<group>";
 		};
-		5D7AC1A02E6FD66800FFED78 /* AudioDemoTests */ = {
+		5D7AC1B22E70B04300FFED78 /* Tests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			path = AudioDemoTests;
+			path = Tests;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -62,10 +62,10 @@
 		5D9B85022E34235A00B9C833 = {
 			isa = PBXGroup;
 			children = (
+				5D7AC1B22E70B04300FFED78 /* Tests */,
 				5D26A90A2E345D9C00BEE50C /* Sources */,
 				5D6D256C2E345E1500E41CCD /* AudioDemo.app */,
 				5D7AC19F2E6FD66800FFED78 /* AudioDemoTests.xctest */,
-				5D7AC1A02E6FD66800FFED78 /* AudioDemoTests */,
 			);
 			sourceTree = "<group>";
 		};
@@ -86,7 +86,7 @@
 				5D7AC1A42E6FD66800FFED78 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
-				5D7AC1A02E6FD66800FFED78 /* AudioDemoTests */,
+				5D7AC1B22E70B04300FFED78 /* Tests */,
 			);
 			name = AudioDemoTests;
 			packageProductDependencies = (

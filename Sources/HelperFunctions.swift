@@ -40,7 +40,7 @@ func convertToAudioObject(s: String) throws -> AudioObject {
 
 
 func convertToAVAudioFile(s: String) throws -> AVAudioFile {
-    var regexFilePattern = "[a-z]+/.[wav, flac, mp3, m4a, aac]"
+    let regexFilePattern = "[a-z]+/.[wav, flac, mp3, m4a, aac]"
     guard s.contains(regexFilePattern)
     else {
         throw AudioManagerError.GenericFailure(funcName: "convertToAVAudioFile", reason: "Invalid string input.")
