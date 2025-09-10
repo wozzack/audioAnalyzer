@@ -54,7 +54,8 @@ public class AudioManager: ObservableObject {
         else {
             throw AudioManagerError.GenericFailure(funcName: "manualSeeking", reason: "no currentAudioObject loaded")
         }
-
+        
+        // protects aganst multiple seeks in rapid succession, which can cause issues with the player seeking to the wrong time
         if let previousSeek = previousSeekTime, Date().timeIntervalSince(previousSeek) < 0.1 {
             return
         }

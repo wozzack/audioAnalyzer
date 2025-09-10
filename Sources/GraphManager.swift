@@ -45,7 +45,7 @@ class GraphManager: ObservableObject {
                 self.visualModel = model
                 self.graphShowing = true
             } catch {
-                throw GraphManagerError.GenericFailure(funcName: "changeGraph", reason: "Failed to process audio for waveform graph")
+                throw GraphManagerError.GenericFailure(funcName: "changeGraph", reason: "failed to process audio for waveform graph")
             }
             
         case .spectrogram:
@@ -55,7 +55,7 @@ class GraphManager: ObservableObject {
                 self.visualModel = model
                 self.graphShowing = true
             } catch {
-                throw GraphManagerError.GenericFailure(funcName: "changeGraph", reason: "Failed to process audio for spectrogram graph")
+                throw GraphManagerError.GenericFailure(funcName: "changeGraph", reason: "failed to process audio for spectrogram graph")
                 
             }
         }
