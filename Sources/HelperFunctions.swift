@@ -64,14 +64,14 @@ func convertToAVAudioFile(s: String) throws -> AVAudioFile {
 func minmaxDownSampling(length: Int, file: AVAudioFile) throws -> [(Float, Float)] {
     guard let buffer = try AVAudioPCMBuffer(file: AVAudioFile(forReading: file.url)), buffer.floatChannelData != nil
     else {
-        throw VisualGraphError.GenericFailure(funcName: "minmaxDownSampling", reason: "failed to create AVAudioPCMBuffer from AVAudioFile")
+        throw GraphManagerError.GenericFailure(funcName: "minmaxDownSampling", reason: "failed to create AVAudioPCMBuffer from AVAudioFile")
     }
     
     do {
         // changed to below framelength for error system checking
         guard buffer.floatChannelData != nil, buffer.frameLength > 0
         else {
-            throw VisualGraphError.GenericFailure(funcName: "mixmaxDownSampling", reason: "buffer has no floatChannelData or frameLength is invalid")
+            throw GraphManagerError.GenericFailure(funcName: "mixmaxDownSampling", reason: "buffer has no floatChannelData or frameLength is invalid")
         }
         let channelCount = Int(buffer.format.channelCount)
         //for remaining fraction samples that can be accounted for by adding one more sample
@@ -96,7 +96,7 @@ func minmaxDownSampling(length: Int, file: AVAudioFile) throws -> [(Float, Float
         return downSamples
         // end of do clause
     } catch {
-        throw VisualGraphError.GenericFailure(funcName: "minmaxDownSampling", reason: "failed during downsampling process for AVAudioFile")
+        throw GraphManagerError.GenericFailure(funcName: "minmaxDownSampling", reason: "failed during downsampling process for AVAudioFile")
     }
 }
 

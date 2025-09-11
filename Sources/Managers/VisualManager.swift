@@ -47,7 +47,7 @@ class WaveformView: VisualGraph, ObservableObject {
             self.AVFile = AVFile
             self.dsData = try minmaxDownSampling(length: 300, file: AVFile)
         } else {
-            throw VisualGraphError.GenericFailure(funcName: "processAudio", reason: "AVFile passed to processAudio does not match the AVFile stored in the WaveformView instance")
+            throw GraphManagerError.GenericFailure(funcName: "processAudio", reason: "AVFile passed to processAudio does not match the AVFile stored in the WaveformView instance")
         }
     }
 
@@ -55,7 +55,7 @@ class WaveformView: VisualGraph, ObservableObject {
         var pathObject = Path()
         guard let dsData = self.dsData
         else {
-            throw VisualGraphError.GenericFailure(funcName: "drawGraph", reason: "dsData is nil when trying to draw graph")
+            throw GraphManagerError.GenericFailure(funcName: "drawGraph", reason: "dsData is nil when trying to draw graph")
         }
         // print("Current dsData: \(dsData)")
         for (i, data) in dsData.enumerated() {

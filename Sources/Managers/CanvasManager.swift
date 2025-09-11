@@ -26,7 +26,7 @@ enum GraphType {
     case spectrogram
 }
 
-class GraphManager: ObservableObject {
+class CanvasManager: ObservableObject {
     // handles graph loading/changing and graph view modification
 
     @Published var visualModel: (any VisualGraph)?
@@ -45,7 +45,7 @@ class GraphManager: ObservableObject {
                 self.visualModel = model
                 self.graphShowing = true
             } catch {
-                throw GraphManagerError.GenericFailure(funcName: "changeGraph", reason: "failed to process audio for waveform graph")
+                throw CanvasManagerError.GenericFailure(funcName: "changeGraph", reason: "failed to process audio for waveform graph")
             }
             
         case .spectrogram:
@@ -55,7 +55,7 @@ class GraphManager: ObservableObject {
                 self.visualModel = model
                 self.graphShowing = true
             } catch {
-                throw GraphManagerError.GenericFailure(funcName: "changeGraph", reason: "failed to process audio for spectrogram graph")
+                throw CanvasManagerError.GenericFailure(funcName: "changeGraph", reason: "failed to process audio for spectrogram graph")
                 
             }
         }

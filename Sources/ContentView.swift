@@ -5,10 +5,10 @@ import SwiftUI
 struct ContentView: View {
     @StateObject var audioManager = AudioManager()
     @StateObject var waveformView = WaveformView()
-    @StateObject var graphManager = GraphManager()
+    @StateObject var graphManager = CanvasManager()
     var displaySize = CGRect(x: 0, y: 0, width: 300, height: 600)
     
-    @State var song: String = "misatowav.wav"
+    @State var song: String = "misato.mp3"
     @State var errorMessage: String?
     @State var isPlaylistShowing: Bool = false
     @State var progressSlider: Double = 0.0
@@ -44,8 +44,6 @@ struct ContentView: View {
                             try audioManager.addToPlaylist(audio: audio)
                             song = ""
                         } catch let error {
-                            //print(error.errorLogging())
-                            //print("Raw error: \(error)")
                             print(errorHandler(error))
                         }
                     }
@@ -98,10 +96,9 @@ struct ContentView: View {
                     if let _ = audioManager.player.file, audioManager.isLoaded {
                         do {
                             //  grabs raw data from the AVAudioFile and processes it via unique downsampling technique, we find issue with the dsData returning nil after it tries the below function
-                            if let path = try graphManager.visualModel?.drawGraph(rect: displaySize) {
+                            let path = try graphManager.visualModel?.drawGraph(rect: displaySize)
+                            if let path {
                                 context.stroke(path, with: .color(graphManager.graphColor))
-                            } else {
-                                throw VisualGraphError.GenericFailure(funcName: "drawGraph", reason: "failed Canvas guard checks (audioManager.player.file and audioManager.isLoaded)")
                             }
                         } catch let error {
                             print(errorHandler(error))

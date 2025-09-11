@@ -6,11 +6,11 @@ import SwiftUI
 
 // can call as unnamed parameter "errorHandler(error)"
 public func errorHandler(_ error: Error) -> String{
-    if let visualGraphError = error as? VisualGraphError {
-        return "VisualGraphError in \(visualGraphError.errorDescription ?? "Unknown Type") \(visualGraphError.failureReason ?? "due to unknown")."
-        
-    } else if let graphManagerError = error as? GraphManagerError {
+    if let graphManagerError = error as? GraphManagerError {
         return "GraphManagerError in \(graphManagerError.errorDescription ?? "Unknown Type") \(graphManagerError.failureReason ?? "due to unknown")."
+        
+    } else if let canvasManagerError = error as? CanvasManagerError {
+        return "CanvasManagerError in \(canvasManagerError.errorDescription ?? "Unknown Type") \(canvasManagerError.failureReason ?? "due to unknown")."
         
     } else if let audioManagerError = error as? AudioManagerError {
         return "AudioManagerError in \(audioManagerError.errorDescription ?? "Unknown Type") \(audioManagerError.failureReason ?? "due to unknown")."
@@ -20,11 +20,11 @@ public func errorHandler(_ error: Error) -> String{
     }
 }
 
-public enum VisualGraphError: LocalizedError {
+public enum GraphManagerError: LocalizedError {
     case GenericFailure(funcName: String, reason: String)
 }
 
-public enum GraphManagerError: LocalizedError {
+public enum CanvasManagerError: LocalizedError {
     case GenericFailure(funcName: String, reason: String)
 }
 
@@ -52,7 +52,7 @@ extension AudioManagerError {
     }
 }
 
-extension GraphManagerError {
+extension CanvasManagerError {
     public var errorDescription: String? {
         switch self {
         case .GenericFailure(let funcName, _):
@@ -67,7 +67,7 @@ extension GraphManagerError {
     }
 }
 
-extension VisualGraphError {
+extension GraphManagerError {
     public var errorDescription: String? {
         switch self {
         case .GenericFailure(let funcName, _):

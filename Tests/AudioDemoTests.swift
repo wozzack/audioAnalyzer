@@ -81,3 +81,16 @@ class AudioManagerTestSuite {
         #expect(audioManager.player.currentTime.rounded() == audioManager.player.duration.rounded() / 2, "AudioManager player should be at halfway point of duration after seeking to 0.5 progress.")
     }
 }
+
+class GraphManagerTestSuite {
+    init() {
+        print("Starting GraphManager Test Suite.")
+    }
+    
+    deinit {
+        print("Ending GraphManager Test Suite.")
+    }
+    
+    @Test func waveformProcessing() throws {
+    }
+}
