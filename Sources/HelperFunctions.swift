@@ -15,7 +15,7 @@ func convertToAudioObject(s: String) throws -> AudioObject {
     // confirm it exists in our app bundle, want to be general for any file type
     // i want it to be able to auto detect file type by given string, will search in bundle and if multiple exists of diifferent file type, ask to specify file type in the string itself
     // given "misato.mp3", it will search for misato.mp3 in the bundle and if it exists, return the file URL for that resource
-    let regexFilePattern = try Regex("[a-z]+\\.[wav, flac, mp3, m4a, aac]{1}")
+    let regexFilePattern = try Regex("[a-zA-Z0-9_]+\\.(wav|flac|mp3|m4a|aac)$")
     
     guard s.contains(regexFilePattern)
     else {
@@ -40,7 +40,7 @@ func convertToAudioObject(s: String) throws -> AudioObject {
 
 
 func convertToAVAudioFile(s: String) throws -> AVAudioFile {
-    let regexFilePattern = "[a-z]+/.[wav, flac, mp3, m4a, aac]"
+    let regexFilePattern = "[a-zA-Z0-9_]+\\.(wav|flac|mp3|m4a|aac)$"
     guard s.contains(regexFilePattern)
     else {
         throw AudioManagerError.GenericFailure(funcName: "convertToAVAudioFile", reason: "Invalid string input.")

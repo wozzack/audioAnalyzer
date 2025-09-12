@@ -82,6 +82,30 @@ class AudioManagerTestSuite {
     }
 }
 
+class CanvasManagerTestSuite {
+    init() {
+        print("Starting CanvasManager Test Suite.")
+    }
+    
+    deinit {
+        print("Ending CanvasManager Test Suite.")
+    }
+    
+    @Test func changeGraph() throws {
+        let testFile = try convertToAudioObject(s: "misato.mp3")
+        let canvasManager = CanvasManager()
+        try canvasManager.changeGraph(newGraph: .waveform, file: testFile.file)
+        #expect(canvasManager.visualModel != nil)
+    }
+    
+    @Test func isGraphShowing() {
+        let canvasManager = CanvasManager()
+        canvasManager.clearGraph()
+        #expect(canvasManager.graphShowing == false)
+    }
+    
+}
+
 class GraphManagerTestSuite {
     init() {
         print("Starting GraphManager Test Suite.")
@@ -92,5 +116,12 @@ class GraphManagerTestSuite {
     }
     
     @Test func waveformProcessing() throws {
+        let audioManager = AudioManager()
+        let canvasManager = CanvasManager()
+    }
+    
+    @Test func waveformDrawing() throws {
+        
     }
 }
+

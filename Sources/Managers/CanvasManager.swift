@@ -63,6 +63,7 @@ class CanvasManager: ObservableObject {
 
     func clearGraph() {
         self.graphShowing = false
+        self.visualModel = nil
     }
     
     func changeGraphColor(color: Color) {
