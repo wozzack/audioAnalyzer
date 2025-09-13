@@ -24,6 +24,7 @@ import SwiftUI
 enum GraphType {
     case waveform
     case spectrogram
+    case unknown // Added for testing default case
 }
 
 class CanvasManager: ObservableObject {
@@ -47,7 +48,6 @@ class CanvasManager: ObservableObject {
             } catch {
                 throw CanvasManagerError.GenericFailure(funcName: "changeGraph", reason: "failed to process audio for waveform graph")
             }
-            
         case .spectrogram:
             do {
                 let model = SpectrogramView()
@@ -56,8 +56,9 @@ class CanvasManager: ObservableObject {
                 self.graphShowing = true
             } catch {
                 throw CanvasManagerError.GenericFailure(funcName: "changeGraph", reason: "failed to process audio for spectrogram graph")
-                
             }
+        @unknown default:
+            throw CanvasManagerError.GenericFailure(funcName: "changeGraph", reason: "unsupported graph type")
         }
     }
 

@@ -1,5 +1,9 @@
 
 import Testing
+import SwiftUI
+import AudioKit
+import AVFoundation
+
 @testable import AudioDemo
 
 class AudioManagerTestSuite {
@@ -79,6 +83,10 @@ class AudioManagerTestSuite {
         try audioManager.playAudio()
         try audioManager.manualSeeking(prog: 0.5)
         #expect(audioManager.player.currentTime.rounded() == audioManager.player.duration.rounded() / 2, "AudioManager player should be at halfway point of duration after seeking to 0.5 progress.")
+        try audioManager.manualSeeking(prog: 0.3)
+        #expect(audioManager.player.currentTime.rounded() == audioManager.player.duration.rounded() * 0.8, "AudioManager player should be at 80% point of duration after seeking to 0.8 progress.")
+        try audioManager.manualSeeking(prog: 0.25)
+        #expect(audioManager.player.currentTime.rounded() == audioManager.player.duration.rounded() * 0.25, "AudioManager player should be at 25% point of duration after seeking to 0.25 progress.")
     }
 }
 
@@ -94,8 +102,20 @@ class CanvasManagerTestSuite {
     @Test func changeGraph() throws {
         let testFile = try convertToAudioObject(s: "misato.mp3")
         let canvasManager = CanvasManager()
-        try canvasManager.changeGraph(newGraph: .waveform, file: testFile.file)
-        #expect(canvasManager.visualModel != nil)
+        do {
+            try canvasManager.changeGraph(newGraph: .waveform, file: testFile.file)
+            #expect(canvasManager.visualModel is WaveformView, "visualModel is of wrong type")
+            #expect(canvasManager.visualModel!.dsData != nil, "dsData is nil")
+        } catch {
+            throw CanvasManagerError.GenericFailure(funcName: "changeGraph", reason: "failed to change visualModel and it's properties correctly.")
+        }
+        
+        do {
+            try canvasManager.changeGraph(newGraph: .unknown, file: testFile.file)
+        } catch let error {
+            #expect(canvasManager.visualModel is WaveformView)
+            #expect(error is CanvasManagerError)
+        }
     }
     
     @Test func isGraphShowing() {
@@ -118,9 +138,31 @@ class GraphManagerTestSuite {
     @Test func waveformProcessing() throws {
         let audioManager = AudioManager()
         let canvasManager = CanvasManager()
+        let testAudioObject = try convertToAudioObject(s: "misato.mp3")
+        let testAudioObject2 = try convertToAudioObject(s: "asuka.wav")
+        try audioManager.addToPlaylist(audio: testAudioObject)
+        try audioManager.loadAudio(audio: audioManager.playlist[0])
+        try canvasManager.changeGraph(newGraph: .waveform, file: testAudioObject.file)
+        try canvasManager.visualModel?.processAudio(AVFile: testAudioObject.file)
+        #expect(canvasManager.visualModel?.rawData != nil)
+        #expect(canvasManager.visualModel?.dsData != nil)
+        try canvasManager.changeGraph(newGraph: .waveform, file: testAudioObject2.file)
+        #expect(canvasManager.visualModel?.rawData != nil)
+        #expect(canvasManager.visualModel?.dsData != nil)
+        
     }
     
     @Test func waveformDrawing() throws {
+        let audioManager = AudioManager()
+        let canvasManager = CanvasManager()
+        let testAudioObject = try convertToAudioObject(s: "misato.mp3")
+        try audioManager.addToPlaylist(audio: testAudioObject)
+        try audioManager.loadAudio(audio: audioManager.playlist[0])
+        try canvasManager.changeGraph(newGraph: .waveform, file: testAudioObject.file)
+        try canvasManager.visualModel?.processAudio(AVFile: testAudioObject.file)
+        let displaySize = CGRect(x: 0, y: 0, width: 300, height: 600)
+        let pathObject = try canvasManager.visualModel?.drawGraph(rect: displaySize)
+        #expect(pathObject != nil)
         
     }
 }

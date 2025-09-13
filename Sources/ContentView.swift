@@ -5,7 +5,7 @@ import SwiftUI
 struct ContentView: View {
     @StateObject var audioManager = AudioManager()
     @StateObject var waveformView = WaveformView()
-    @StateObject var graphManager = CanvasManager()
+    @StateObject var canvasManager = CanvasManager()
     var displaySize = CGRect(x: 0, y: 0, width: 300, height: 600)
     
     @State var song: String = "misato.mp3"
@@ -63,8 +63,8 @@ struct ContentView: View {
                                 do {
                                     try audioManager.loadAudio(audio: audioFile)
                                     // loadAudio sets audioManager.player.file to be the current file we need
-                                    try graphManager.changeGraph(newGraph: .waveform, file: audioManager.player.file!)
-                                    try graphManager.visualModel?.processAudio(AVFile: audioManager.player.file!)
+                                    try canvasManager.changeGraph(newGraph: .waveform, file: audioManager.player.file!)
+                                    try canvasManager.visualModel?.processAudio(AVFile: audioManager.player.file!)
                                     audioManager.isLoaded = true
                                 } catch let error {
                                     print(errorHandler(error))
@@ -96,9 +96,9 @@ struct ContentView: View {
                     if let _ = audioManager.player.file, audioManager.isLoaded {
                         do {
                             //  grabs raw data from the AVAudioFile and processes it via unique downsampling technique, we find issue with the dsData returning nil after it tries the below function
-                            let path = try graphManager.visualModel?.drawGraph(rect: displaySize)
+                            let path = try canvasManager.visualModel?.drawGraph(rect: displaySize)
                             if let path {
-                                context.stroke(path, with: .color(graphManager.graphColor))
+                                context.stroke(path, with: .color(canvasManager.graphColor))
                             }
                         } catch let error {
                             print(errorHandler(error))
