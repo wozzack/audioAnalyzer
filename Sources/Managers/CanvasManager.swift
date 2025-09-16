@@ -24,7 +24,6 @@ import SwiftUI
 enum GraphType {
     case waveform
     case spectrogram
-    case unknown // Added for testing default case
 }
 
 class CanvasManager: ObservableObject {

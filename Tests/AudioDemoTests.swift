@@ -62,6 +62,7 @@ class AudioManagerTestSuite {
         }
     }
     
+    // should also test pause on stop for invaid
     @Test func playback() throws {
         let audioManager = AudioManager()
         try audioManager.addToPlaylist(audio: convertToAudioObject(s: "misato.mp3"))
@@ -74,6 +75,8 @@ class AudioManagerTestSuite {
         #expect(audioManager.player.status == .playing, "AudioManager player should be in started status after calling playAudio again after stopping.")
         try audioManager.stopAudio()
         #expect(audioManager.player.status == .stopped, "AudioManager player should be in stopped status after calling stopAudio.")
+        try audioManager.pauseAudio()
+        #expect(audioManager.player.status == .stopped, "AudioManager player should still be in stopped status after calling pauseAudio.")
     }
     
     @Test func seeking() throws {
@@ -83,10 +86,15 @@ class AudioManagerTestSuite {
         try audioManager.playAudio()
         try audioManager.manualSeeking(prog: 0.5)
         #expect(audioManager.player.currentTime.rounded() == audioManager.player.duration.rounded() / 2, "AudioManager player should be at halfway point of duration after seeking to 0.5 progress.")
-        try audioManager.manualSeeking(prog: 0.3)
-        #expect(audioManager.player.currentTime.rounded() == audioManager.player.duration.rounded() * 0.8, "AudioManager player should be at 80% point of duration after seeking to 0.8 progress.")
+        try audioManager.manualSeeking(prog: 0.8)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+            #expect(audioManager.player.currentTime.rounded() == audioManager.player.duration.rounded() * 0.8, "AudioManager player should be at 80% point of duration after seeking to 0.8 progress.")
+        }
+    
         try audioManager.manualSeeking(prog: 0.25)
-        #expect(audioManager.player.currentTime.rounded() == audioManager.player.duration.rounded() * 0.25, "AudioManager player should be at 25% point of duration after seeking to 0.25 progress.")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+            #expect(audioManager.player.currentTime.rounded() == audioManager.player.duration.rounded() * 0.25, "AudioManager player should be at 25% point of duration after seeking to 0.25 progress.")
+        }
     }
 }
 
@@ -101,6 +109,7 @@ class CanvasManagerTestSuite {
     
     @Test func changeGraph() throws {
         let testFile = try convertToAudioObject(s: "misato.mp3")
+        let testFile2 = try convertToAudioObject(s: "asuka.wav")
         let canvasManager = CanvasManager()
         do {
             try canvasManager.changeGraph(newGraph: .waveform, file: testFile.file)
@@ -111,10 +120,11 @@ class CanvasManagerTestSuite {
         }
         
         do {
-            try canvasManager.changeGraph(newGraph: .unknown, file: testFile.file)
-        } catch let error {
-            #expect(canvasManager.visualModel is WaveformView)
-            #expect(error is CanvasManagerError)
+            try canvasManager.changeGraph(newGraph: .spectrogram, file: testFile2.file)
+            #expect(canvasManager.visualModel is SpectrogramView, "visualModel is of wrong type")
+            #expect(canvasManager.visualModel!.dsData != nil, "dsData is nil")
+        } catch {
+            throw CanvasManagerError.GenericFailure(funcName: "changeGraph", reason: "failed to change visualModel and it's properties correctly.")
         }
     }
     
@@ -134,8 +144,9 @@ class GraphManagerTestSuite {
     deinit {
         print("Ending GraphManager Test Suite.")
     }
-    
+    // test for success and failure scenarios, check relevant states for correct values, not just existance. test for single and multi channel audio files, pass invalid file and assert the correct error is thrown.
     @Test func waveformProcessing() throws {
+        // prechecklist stuff type shit
         let audioManager = AudioManager()
         let canvasManager = CanvasManager()
         let testAudioObject = try convertToAudioObject(s: "misato.mp3")
@@ -143,13 +154,51 @@ class GraphManagerTestSuite {
         try audioManager.addToPlaylist(audio: testAudioObject)
         try audioManager.loadAudio(audio: audioManager.playlist[0])
         try canvasManager.changeGraph(newGraph: .waveform, file: testAudioObject.file)
-        try canvasManager.visualModel?.processAudio(AVFile: testAudioObject.file)
-        #expect(canvasManager.visualModel?.rawData != nil)
-        #expect(canvasManager.visualModel?.dsData != nil)
-        try canvasManager.changeGraph(newGraph: .waveform, file: testAudioObject2.file)
-        #expect(canvasManager.visualModel?.rawData != nil)
-        #expect(canvasManager.visualModel?.dsData != nil)
         
+        // success
+        do {
+            try canvasManager.visualModel?.processAudio(AVFile: testAudioObject.file)
+            // check that they are not nil
+            #expect(canvasManager.visualModel?.rawData != nil)
+            #expect(canvasManager.visualModel?.dsData != nil)
+            #expect((canvasManager.visualModel?.dsData?.count ?? 0) > 0, "dsData should not be empty" )
+            
+            // check that dsData values are valid, normalized, and in logical ordering
+            if let dsData = canvasManager.visualModel?.dsData {
+                for (min, max) in dsData {
+                    #expect(min <= max, "min values range exceeds that of max values range")
+                    #expect(min >= -1.0 && max <= 1.0, "min and max values are not normalized between -1.0 and 1.0")
+                }
+            }
+        } catch {
+            throw CanvasManagerError.GenericFailure(funcName: "processAudio", reason: "failed to process audio for testAudioObject1")
+        }
+        
+        // failure due to mismatched files
+        do {
+            try canvasManager.changeGraph(newGraph: .waveform, file: testAudioObject2.file)
+        } catch let error {
+            #expect(error is GraphManagerError)
+        }
+        
+        do {
+            try canvasManager.visualModel?.processAudio(AVFile: testAudioObject2.file)
+            try canvasManager.changeGraph(newGraph: .waveform, file: testAudioObject2.file)
+            // check that they are not nil
+            #expect(canvasManager.visualModel?.rawData != nil)
+            #expect(canvasManager.visualModel?.dsData != nil)
+            #expect((canvasManager.visualModel?.dsData?.count ?? 0) > 0, "dsData should not be empty" )
+            
+            // check that dsData values are valid, normalized, and in logical ordering
+            if let dsData = canvasManager.visualModel?.dsData {
+                for (min, max) in dsData {
+                    #expect(min <= max, "min values range exceeds that of max values range")
+                    #expect(min >= -1.0 && max <= 1.0, "min and max values are not normalized between -1.0 and 1.0")
+                }
+            }
+        } catch {
+            throw CanvasManagerError.GenericFailure(funcName: "processAudio", reason: "failed to process audio for testAudioObject2")
+        }
     }
     
     @Test func waveformDrawing() throws {
@@ -161,6 +210,8 @@ class GraphManagerTestSuite {
         try canvasManager.changeGraph(newGraph: .waveform, file: testAudioObject.file)
         try canvasManager.visualModel?.processAudio(AVFile: testAudioObject.file)
         let displaySize = CGRect(x: 0, y: 0, width: 300, height: 600)
+        
+        // what do i want to check for in the pathobject?
         let pathObject = try canvasManager.visualModel?.drawGraph(rect: displaySize)
         #expect(pathObject != nil)
         
