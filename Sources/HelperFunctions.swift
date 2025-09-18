@@ -77,6 +77,7 @@ func minmaxDownSampling(length: Int, file: AVAudioFile) throws -> [(Float, Float
         //for remaining fraction samples that can be accounted for by adding one more sample
         let totalSamples = Int(buffer.frameLength) / length + (Int(buffer.frameLength) % length == 0 ? 0 : 1)
         var downSamples: [(Float, Float)] = Array(repeating: (0.0, 0.0), count: totalSamples)
+        
         for channel in 0..<channelCount {
             let channelData = UnsafeBufferPointer(
                 start: buffer.floatChannelData?[channel],
@@ -99,6 +100,8 @@ func minmaxDownSampling(length: Int, file: AVAudioFile) throws -> [(Float, Float
         throw GraphManagerError.GenericFailure(funcName: "minmaxDownSampling", reason: "failed during downsampling process for AVAudioFile")
     }
 }
+
+
 
 func makeDummyAVAudioFile() throws -> AVAudioFile {
     let sampleRate: Double = 44100

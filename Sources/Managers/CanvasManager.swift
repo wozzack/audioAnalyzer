@@ -40,7 +40,7 @@ class CanvasManager: ObservableObject {
         switch newGraph {
         case .waveform:
             do {
-                let model = WaveformView()
+                let model = WaveformView()
                 try model.processAudio(AVFile: file)
                 self.visualModel = model
                 self.graphShowing = true

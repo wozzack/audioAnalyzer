@@ -17,7 +17,8 @@ protocol VisualGraph: ObservableObject, AnyObject {
     var graphType: GraphType { get }
     // raw data is used to draw the graph, needs to be processed before drawing
     var rawData: [Any]? { get }
-    var dsData: [(Float, Float)]? { get }
+    var dsData: DSType? { get }
+    var shapeSize: CGRect { get set }
     func processAudio(AVFile: AVAudioFile) throws
     // canvas stuff
     func drawGraph(rect: CGRect) throws -> Path
@@ -27,6 +28,7 @@ class WaveformView: VisualGraph, ObservableObject {
     typealias DSType = [(Float, Float)]
     var rawData: [Any]? = []
     var dsData: DSType? = []
+    var shapeSize = CGRect(x: 0, y: 0, width: 300, height: 600)
     // unneeded just do in drawGraph
     // var shapeData: [CGPoint]?
     // need to convert to CGPoints
@@ -50,9 +52,10 @@ class WaveformView: VisualGraph, ObservableObject {
             throw GraphManagerError.GenericFailure(funcName: "processAudio", reason: "AVFile passed to processAudio does not match the AVFile stored in the WaveformView instance")
         }
     }
-
+    // check for cgrect size, dsData existance,
     func drawGraph(rect: CGRect) throws -> Path {
         var pathObject = Path()
+        var unitTestPath: [(CGFloat, CGFloat, CGFloat)] = []
         guard let dsData = self.dsData
         else {
             throw GraphManagerError.GenericFailure(funcName: "drawGraph", reason: "dsData is nil when trying to draw graph")
@@ -62,6 +65,10 @@ class WaveformView: VisualGraph, ObservableObject {
             let normX = rect.origin.x + CGFloat(i) / CGFloat(max(dsData.count - 1, 1)) * rect.width
             let minY = rect.midY - CGFloat(data.0) * rect.height / 2
             let maxY = rect.midY - CGFloat(data.1) * rect.height / 2
+            
+            // for unit test
+            unitTestPath.append((normX, minY, maxY))
+            
             pathObject.move(to: CGPoint(x: normX, y: minY))
             pathObject.addLine(to: CGPoint(x: normX, y: maxY))
         }
@@ -71,14 +78,41 @@ class WaveformView: VisualGraph, ObservableObject {
 
 class SpectrogramView: VisualGraph, ObservableObject {
     // time, frequency, color (amplitude)
-    typealias DSType = [(Float, Float, Color)]
+    typealias DSType = [Float]
     var rawData: [Any]? = []
-    var dsData: [(Float, Float)]? = []
+    var dsData: DSType? = []
+    var shapeSize = CGRect(x: 0, y: 0, width: 300, height: 600)
     var AVFile: AVAudioFile?
     var graphType: GraphType = .spectrogram
     
     func processAudio(AVFile: AVAudioFile) throws {
         // implement spectrogram processing
+        if AVFile == AVFile {
+            guard let buffer = try AVAudioPCMBuffer(file: AVAudioFile(forReading: AVFile.url)),
+                    buffer.floatChannelData != nil,
+                    buffer.frameLength > 0
+            else {
+                throw GraphManagerError.GenericFailure(funcName: "processAudio", reason: "failure to properly allocate PCM buffer")
+            }
+            self.rawData = [AVFile.floatChannelData() as Any]
+            self.AVFile = AVFile
+            let length = Int(self.shapeSize.width)
+            
+            //for remaining fraction samples that can be accounted for by adding one more sample
+            let totalSamples = Int(buffer.frameLength) / length + (Int(buffer.frameLength) % length == 0 ? 0 : 1)
+            let channelCount = Int(buffer.format.channelCount)
+            var samples: [Float] = Array(repeating: (0.0), count: totalSamples)
+            for channel in 0..<channelCount {
+                let channelData = Array(UnsafeBufferPointer(
+                    start: buffer.floatChannelData?[channel],
+                    count: Int(buffer.frameLength)))
+                samples.append(contentsOf: channelData)
+            }
+            self.dsData = samples
+                    
+        } else {
+            throw GraphManagerError.GenericFailure(funcName: "processAudio", reason: "AVFile passed to processAudio does not match the AVFile stored in the WaveformView instance")
+        }
     }
     
     func drawGraph(rect: CGRect) throws -> Path {

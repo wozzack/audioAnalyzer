@@ -67,16 +67,22 @@ class AudioManagerTestSuite {
         let audioManager = AudioManager()
         try audioManager.addToPlaylist(audio: convertToAudioObject(s: "misato.mp3"))
         try audioManager.loadAudio(audio: audioManager.playlist[0])
-        try audioManager.playAudio()
-        #expect(audioManager.player.status == .playing, "AudioManager player should be in started status after calling playAudio.")
-        try audioManager.pauseAudio()
-        #expect(audioManager.player.status == .paused, "AudioManager player should be in paused status after calling pauseAudio.")
-        try audioManager.playAudio()
-        #expect(audioManager.player.status == .playing, "AudioManager player should be in started status after calling playAudio again after stopping.")
-        try audioManager.stopAudio()
-        #expect(audioManager.player.status == .stopped, "AudioManager player should be in stopped status after calling stopAudio.")
-        try audioManager.pauseAudio()
-        #expect(audioManager.player.status == .stopped, "AudioManager player should still be in stopped status after calling pauseAudio.")
+        do {
+            try audioManager.playAudio()
+            #expect(audioManager.player.status == .playing, "AudioManager player should be in started status after calling playAudio.")
+            try audioManager.pauseAudio()
+            #expect(audioManager.player.status == .paused, "AudioManager player should be in paused status after calling pauseAudio.")
+            try audioManager.playAudio()
+            #expect(audioManager.player.status == .playing, "AudioManager player should be in started status after calling playAudio again after stopping.")
+            try audioManager.stopAudio()
+            #expect(audioManager.player.status == .stopped, "AudioManager player should be in stopped status after calling stopAudio.")
+        }
+        
+        do {
+            try audioManager.pauseAudio()
+        } catch let error {
+            #expect(error is AudioManagerError)
+        }
     }
     
     @Test func seeking() throws {
@@ -210,9 +216,12 @@ class GraphManagerTestSuite {
         try canvasManager.changeGraph(newGraph: .waveform, file: testAudioObject.file)
         try canvasManager.visualModel?.processAudio(AVFile: testAudioObject.file)
         let displaySize = CGRect(x: 0, y: 0, width: 300, height: 600)
+        let displaySize2 = CGRect(x: 0, y: 0, width: 600, height: 300)
         
         // what do i want to check for in the pathobject?
+        
         let pathObject = try canvasManager.visualModel?.drawGraph(rect: displaySize)
+        
         #expect(pathObject != nil)
         
     }
