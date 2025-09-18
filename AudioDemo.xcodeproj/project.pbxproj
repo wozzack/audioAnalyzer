@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		5D7C521A2E4A949200AD5022 /* AudioKit in Frameworks */ = {isa = PBXBuildFile; productRef = 5D7C52192E4A949200AD5022 /* AudioKit */; };
 		5D7C521C2E4A949700AD5022 /* Waveform in Frameworks */ = {isa = PBXBuildFile; productRef = 5D7C521B2E4A949700AD5022 /* Waveform */; };
+		5DAAC7842E7BDA4B0041A499 /* README.md in Resources */ = {isa = PBXBuildFile; fileRef = 5DAAC7832E7BDA4B0041A499 /* README.md */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -24,6 +25,7 @@
 /* Begin PBXFileReference section */
 		5D6D256C2E345E1500E41CCD /* AudioDemo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AudioDemo.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		5D7AC19F2E6FD66800FFED78 /* AudioDemoTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AudioDemoTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		5DAAC7832E7BDA4B0041A499 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -66,6 +68,7 @@
 				5D26A90A2E345D9C00BEE50C /* Sources */,
 				5D6D256C2E345E1500E41CCD /* AudioDemo.app */,
 				5D7AC19F2E6FD66800FFED78 /* AudioDemoTests.xctest */,
+				5DAAC7832E7BDA4B0041A499 /* README.md */,
 			);
 			sourceTree = "<group>";
 		};
@@ -175,6 +178,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				5DAAC7842E7BDA4B0041A499 /* README.md in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
