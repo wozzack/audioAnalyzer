@@ -10,6 +10,7 @@ import SwiftUI
 
 import Waveform
 
+import Accelerate
 
 protocol VisualGraph: ObservableObject, AnyObject {
     associatedtype DSType
@@ -85,6 +86,12 @@ class SpectrogramView: VisualGraph, ObservableObject {
     var AVFile: AVAudioFile?
     var graphType: GraphType = .spectrogram
     
+    var freqData = [Float](repeating: 0, count: 2048) // 2048 is holder value for now
+    // frameLength = number of audio frames stored in the buffer (data quantity)
+    // frameSize = number of samples chosen per frame (usually fixed value, analysis choice)
+    // audioframe = one sample per channel at a given point in time (so could have N values with N channels)
+    // if buffer.frameLength < frameSize, dont have enough samples and must accumulate across multiple buffers until frameSize is reached. frameSize samples is what we use to actually do the FFT
+    
     func processAudio(AVFile: AVAudioFile) throws {
         // implement spectrogram processing
         if AVFile == AVFile {
@@ -108,6 +115,8 @@ class SpectrogramView: VisualGraph, ObservableObject {
                     count: Int(buffer.frameLength)))
                 samples.append(contentsOf: channelData)
             }
+            
+            // an array of floats
             self.dsData = samples
                     
         } else {
@@ -115,7 +124,31 @@ class SpectrogramView: VisualGraph, ObservableObject {
         }
     }
     
+    // takes dsData and does DFT on it to convert to frequency domain
+    func DFT(timeData: [Float]) throws {
+        var frequencyData = [Float](repeating: 0, count: timeData.count)
+        let hannWindow = vDSP.window(ofType: Float.self,
+                                     usingSequence: .hanningDenormalized,
+                                     count: timeData.count,
+                                     isHalfWindow: false)
+        let windowedData = vDSP.multiply(timeData, hannWindow)
+        
+        // so we need a way to make sure we are feeding frameSize samples into this function
+        let forwardDFT = try? vDSP.DiscreteFourierTransform(previous: nil, count: timeData.count, direction: .forward, transformType: .complexComplex, ofType: Float.self)
+        
+        let imaginary = [Float](repeating: 0, count: self.dsData!.count)
+        // remember, this processes a buffer at a time
+        // this gives the real and imaginary components from the input time domain, find the norm of both to get magnitude
+        let (r, i) = forwardDFT!.transform(real: self.dsData!, imaginary: imaginary)
+        self.freqData = zip(r, i).map {
+            sqrt($0 * $0 + $1 * $1)
+        }
+    }
+    // an array of arrays, where the outer dimension are time slices and each inner array is divided into freq bins, and the
+    // value in each bin represents the magnitude/amplitude
+    
     func drawGraph(rect: CGRect) throws -> Path {
+        
         return Path()
     }
 }
