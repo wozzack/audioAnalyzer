@@ -143,6 +143,16 @@ class SpectrogramView: VisualGraph, ObservableObject {
             self.spectrogramData.append(freqFrame)
             bufferIndex = bufferIndex + hopSize
         }
+        if bufferIndex <= dsData.count {
+            var timeFrame: [Float] = Array(dsData[bufferIndex..<(dsData.count)])
+            let paddingFrame: [Float] = Array(repeating: (0.0), count: frameSize - (dsData.count - bufferIndex))
+            timeFrame.append(contentsOf: paddingFrame)
+            guard let freqFrame = try? frameDFT(timeFrame: timeFrame)
+            else {
+                throw GraphManagerError.GenericFailure(funcName: "fileDFT", reason: "failed to create frequency frame")
+            }
+            self.spectrogramData.append(freqFrame)
+        }
     }
     // takes a buffer and does DFT on it to convert to frequency domain
     func frameDFT(timeFrame: [Float]) throws -> [Float] {
@@ -166,15 +176,3 @@ class SpectrogramView: VisualGraph, ObservableObject {
     }
 }
 
-/*
- // Optionally handle last partial frame
- if bufferIndex < dsData.count {
-     let timeFrame = Array(dsData[bufferIndex..<dsData.count])
-     let paddedFrame = timeFrame + Array(repeating: 0.0, count: frameSize - timeFrame.count)
-     guard let freqFrame = try? frameDFT(timeFrame: paddedFrame)
-     else {
-         throw GraphManagerError.GenericFailure(funcName: "fileDFT", reason: "failed to create frequency frame for last partial frame")
-     }
-     self.spectrogramData.append(freqFrame)
- }
- */
