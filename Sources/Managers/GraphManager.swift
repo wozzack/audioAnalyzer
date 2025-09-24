@@ -86,12 +86,16 @@ class SpectrogramView: VisualGraph, ObservableObject {
     var AVFile: AVAudioFile?
     var graphType: GraphType = .spectrogram
     
-    var freqData = [Float](repeating: 0, count: 2048) // 2048 is holder value for now
+
+    var spectrogramData: [[Float]] = [] // 2D array for time-frequency spectrogram
+    
     // frameLength = number of audio frames stored in the buffer (data quantity)
     // frameSize = number of samples chosen per frame (usually fixed value, analysis choice)
     // audioframe = one sample per channel at a given point in time (so could have N values with N channels)
     // if buffer.frameLength < frameSize, dont have enough samples and must accumulate across multiple buffers until frameSize is reached. frameSize samples is what we use to actually do the FFT
     
+    
+    // processes buffers and stores in dsData
     func processAudio(AVFile: AVAudioFile) throws {
         // implement spectrogram processing
         if AVFile == AVFile {
@@ -116,33 +120,42 @@ class SpectrogramView: VisualGraph, ObservableObject {
                 samples.append(contentsOf: channelData)
             }
             
-            // an array of floats
+            // an array of floats representing magnitude
             self.dsData = samples
                     
         } else {
             throw GraphManagerError.GenericFailure(funcName: "processAudio", reason: "AVFile passed to processAudio does not match the AVFile stored in the WaveformView instance")
         }
     }
-    
-    // takes dsData and does DFT on it to convert to frequency domain
-    func DFT(timeData: [Float]) throws {
-        var frequencyData = [Float](repeating: 0, count: timeData.count)
+    // takes dsData as input and outputs frequency-domain converted dsData, calls on bufferDFT multiple times. need to append results of bufferDFT() to the frequency-domain value address
+    func fileDFT(frameSize: Int, hopSize: Int) throws {
+        guard let dsData = self.dsData
+        else {
+            throw GraphManagerError.GenericFailure(funcName: "fileDFT", reason: "dsData does not exist")
+        }
+        var bufferIndex = 0
+        while bufferIndex + frameSize <= dsData.count {
+            let timeFrame: [Float] = Array(dsData[bufferIndex..<(bufferIndex + frameSize)])
+            guard let freqFrame = try? frameDFT(timeFrame: timeFrame)
+            else {
+                throw GraphManagerError.GenericFailure(funcName: "fileDFT", reason: "failed to create frequency frame")
+            }
+            self.spectrogramData.append(freqFrame)
+            bufferIndex = bufferIndex + hopSize
+        }
+    }
+    // takes a buffer and does DFT on it to convert to frequency domain
+    func frameDFT(timeFrame: [Float]) throws -> [Float] {
         let hannWindow = vDSP.window(ofType: Float.self,
                                      usingSequence: .hanningDenormalized,
-                                     count: timeData.count,
+                                     count: timeFrame.count,
                                      isHalfWindow: false)
-        let windowedData = vDSP.multiply(timeData, hannWindow)
-        
-        // so we need a way to make sure we are feeding frameSize samples into this function
-        let forwardDFT = try? vDSP.DiscreteFourierTransform(previous: nil, count: timeData.count, direction: .forward, transformType: .complexComplex, ofType: Float.self)
-        
-        let imaginary = [Float](repeating: 0, count: self.dsData!.count)
-        // remember, this processes a buffer at a time
-        // this gives the real and imaginary components from the input time domain, find the norm of both to get magnitude
-        let (r, i) = forwardDFT!.transform(real: self.dsData!, imaginary: imaginary)
-        self.freqData = zip(r, i).map {
-            sqrt($0 * $0 + $1 * $1)
-        }
+        let windowedData = vDSP.multiply(timeFrame, hannWindow)
+        let forwardDFT = try vDSP.DiscreteFourierTransform(previous: nil, count: timeFrame.count, direction: .forward, transformType: .complexComplex, ofType: Float.self)
+        let imaginary = [Float](repeating: 0, count: timeFrame.count)
+        let (r, i) = forwardDFT.transform(real: windowedData, imaginary: imaginary)
+        let magnitude = zip(r, i).map { sqrt($0 * $0 + $1 * $1) }
+        return magnitude
     }
     // an array of arrays, where the outer dimension are time slices and each inner array is divided into freq bins, and the
     // value in each bin represents the magnitude/amplitude
@@ -152,3 +165,16 @@ class SpectrogramView: VisualGraph, ObservableObject {
         return Path()
     }
 }
+
+/*
+ // Optionally handle last partial frame
+ if bufferIndex < dsData.count {
+     let timeFrame = Array(dsData[bufferIndex..<dsData.count])
+     let paddedFrame = timeFrame + Array(repeating: 0.0, count: frameSize - timeFrame.count)
+     guard let freqFrame = try? frameDFT(timeFrame: paddedFrame)
+     else {
+         throw GraphManagerError.GenericFailure(funcName: "fileDFT", reason: "failed to create frequency frame for last partial frame")
+     }
+     self.spectrogramData.append(freqFrame)
+ }
+ */
