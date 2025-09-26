@@ -86,8 +86,17 @@ class SpectrogramView: VisualGraph, ObservableObject {
     var AVFile: AVAudioFile?
     var graphType: GraphType = .spectrogram
     
-
     var spectrogramData: [[Float]] = [] // 2D array for time-frequency spectrogram
+    var imageData: [SpectrogramCell] = []
+    
+    // need to convert spectrogramData elements into spectrogram cells
+    struct SpectrogramCell {
+        let x: CGFloat
+        let y: CGFloat
+        let color: Color
+        let width: CGFloat
+        let height: CGFloat
+    }
     
     // frameLength = number of audio frames stored in the buffer (data quantity)
     // frameSize = number of samples chosen per frame (usually fixed value, analysis choice)
@@ -165,11 +174,33 @@ class SpectrogramView: VisualGraph, ObservableObject {
         let imaginary = [Float](repeating: 0, count: timeFrame.count)
         let (r, i) = forwardDFT.transform(real: windowedData, imaginary: imaginary)
         let magnitude = zip(r, i).map { sqrt($0 * $0 + $1 * $1) }
+        print(magnitude)
         return magnitude
     }
     // an array of arrays, where the outer dimension are time slices and each inner array is divided into freq bins, and the
     // value in each bin represents the magnitude/amplitude
     
+    func convertToImageData() {
+        let freqBins = CGFloat(self.spectrogramData[0].count)
+        let timeSlices = CGFloat(self.spectrogramData.count)
+        for (timeIndex, timeSlice) in self.spectrogramData.enumerated() {
+            
+            // freq and amp. [amp1, amp2, amp3, ...], timeSlice[freqBin]
+            for (freqIndex, freqBin) in timeSlice.enumerated() {
+                let hSteps = self.shapeSize.height / freqBins
+                let wSteps = self.shapeSize.width / timeSlices // should be deltaTime we are calculating
+                let yNorm = CGFloat(freqBin) * hSteps
+                let xNorm = CGFloat(timeIndex) * wSteps
+                
+                let spectra = SpectrogramCell(x: xNorm, y: yNorm, color: Color(.red), width: 1, height: 1)
+                self.imageData.append(spectra)
+            }
+            
+        }
+    }
+    
+    
+    // we dont want this to return path object, better to use canvas directly
     func drawGraph(rect: CGRect) throws -> Path {
         
         return Path()
