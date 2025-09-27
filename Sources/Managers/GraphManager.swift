@@ -199,6 +199,20 @@ class SpectrogramView: VisualGraph, ObservableObject {
         }
     }
     
+    func colorMapping(cell: SpectrogramCell) {
+        
+    }
+    
+    func drawSpectrogram() throws -> CGImage {
+        
+        let freqValues = self.spectrogramData.withUnsafeMutableBufferPointer {
+            
+            let planarImageBuffer = vImage.PixelBuffer(
+               
+        }
+            
+            
+    }
     
     // we dont want this to return path object, better to use canvas directly
     func drawGraph(rect: CGRect) throws -> Path {
