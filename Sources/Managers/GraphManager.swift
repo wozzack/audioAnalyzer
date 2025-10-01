@@ -203,14 +203,68 @@ class SpectrogramView: VisualGraph, ObservableObject {
         
     }
     
+    static var multidimensionalLookupTable: vImage.MultidimensionalLookupTable = {
+        let amplitudeBins = UInt8(32)
+        let inputChannels = 1 // floats of intensity values
+        let outputChannels = 3 // RGB output
+        let lookupElements = Int(pow(Float(amplitudeBins),
+                                              Float(inputChannels))) * Int(outputChannels)
+        
+        let colorData = [UInt16](unsafeUninitializedCapacity: lookupElements) { buffer, count in
+            let multiplier = CGFloat(UInt16.max)
+            var bufferIndex = 0
+            
+            for binIndex in ( 0 ..< amplitudeBins) {
+                // code to determine hue
+                let normalizedValue = CGFloat(binIndex) / CGFloat(amplitudeBins - 1) // ranges from 0 to 1
+                let startHue: CGFloat = (240.0/360.0) // blue hsv
+                let hue = startHue - (startHue * normalizedValue) // 1.0 = red, 0.5 = green, 0.0 = blue
+                // to determine brightness
+                let brightness = sqrt(normalizedValue)
+                // to determine saturation
+                let saturation = log(1 + normalizedValue - 0.5) * 2
+               
+                
+                let color = Color(hue: hue, saturation: saturation, brightness: brightness)
+                let environment = EnvironmentValues()
+                let resolvedColors = color.resolve(in: environment)
+                
+                let redHue = resolvedColors.red
+                let greenHue = resolvedColors.green
+                let blueHue = resolvedColors.blue
+                
+                // what does this do
+                buffer[ bufferIndex ] = UInt16(greenHue * Float(multiplier))
+                bufferIndex += 1
+                buffer[ bufferIndex ] = UInt16(redHue * Float(multiplier))
+                bufferIndex += 1
+                buffer[ bufferIndex ] = UInt16(blueHue * Float(multiplier))
+                bufferIndex += 1
+            }
+            
+            count = lookupElements
+        }
+        
+        let entryCountPerSourceChannel = [UInt8](repeating: amplitudeBins,
+                                                 count: inputChannels)
+        
+        return vImage.MultidimensionalLookupTable(entryCountPerSourceChannel: entryCountPerSourceChannel,
+                                                  destinationChannelCount: outputChannels,
+                                                  data: colorData)
+    }()
+    
+    
     func drawSpectrogram() throws -> CGImage {
         
         let freqValues = self.spectrogramData.withUnsafeMutableBufferPointer {
-            
+            let freqBins = self.spectrogramData[0].count
+            let timeSlices = self.spectrogramData.count
             let planarImageBuffer = vImage.PixelBuffer(
-               
-        }
-            
+                data: $0.baseAddress!,
+                width: freqBins,
+                height: timeSlices,
+                byteCountPerRow: freqBins * MemoryLayout<Float>.stride,
+                pixelFormat: vImage.PlanarF.self)
             
     }
     
