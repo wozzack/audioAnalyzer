@@ -98,6 +98,8 @@ class SpectrogramView: VisualGraph, ObservableObject {
         let height: CGFloat
     }
     
+    // buffers are lower level vs arrays and is a contiguoous block of memory, can be managed manually via pointers and UnsafeBufferPointer. convert array into buffer via array.withUnsafeBufferMutableBufferPointer. useful in audio cause easier and faster to access for realtime processing
+    
     // frameLength = number of audio frames stored in the buffer (data quantity)
     // frameSize = number of samples chosen per frame (usually fixed value, analysis choice)
     // audioframe = one sample per channel at a given point in time (so could have N values with N channels)
@@ -204,19 +206,22 @@ class SpectrogramView: VisualGraph, ObservableObject {
     }
     
     static var multidimensionalLookupTable: vImage.MultidimensionalLookupTable = {
-        let amplitudeBins = UInt8(32)
+        let amplitudeBins = UInt8(32) // divide all amplitude values into 32 bins for individual coloring
         let inputChannels = 1 // floats of intensity values
         let outputChannels = 3 // RGB output
-        let lookupElements = Int(pow(Float(amplitudeBins),
-                                              Float(inputChannels))) * Int(outputChannels)
+        let lookupElements = Int(pow(Float(amplitudeBins), Float(inputChannels))) * Int(outputChannels)
         
+        // allocates memory for an array of 16bit unsigned floats (0-65535) without auto-initializing default values, gives us access to buffer and count variable in closure. once all memory is given a value, it will be fully initialized
         let colorData = [UInt16](unsafeUninitializedCapacity: lookupElements) { buffer, count in
+            // applied as multipier to RGB values
             let multiplier = CGFloat(UInt16.max)
+            // for when we assign RGB values to buffer
             var bufferIndex = 0
             
+            // code to determine Color properties for each amplitude bin
             for binIndex in ( 0 ..< amplitudeBins) {
-                // code to determine hue
-                let normalizedValue = CGFloat(binIndex) / CGFloat(amplitudeBins - 1) // ranges from 0 to 1
+                // so first bin will have value [0.0/31.0], looking like [[0.0/31,0], [1.0/31.0], [2.0/31.0], ...] in its entirety
+                let normalizedValue = CGFloat(binIndex) / CGFloat(amplitudeBins - 1)
                 let startHue: CGFloat = (240.0/360.0) // blue hsv
                 let hue = startHue - (startHue * normalizedValue) // 1.0 = red, 0.5 = green, 0.0 = blue
                 // to determine brightness
@@ -226,6 +231,7 @@ class SpectrogramView: VisualGraph, ObservableObject {
                
                 
                 let color = Color(hue: hue, saturation: saturation, brightness: brightness)
+                // gives context to what environment it will be rendered in, this case just being the default values
                 let environment = EnvironmentValues()
                 let resolvedColors = color.resolve(in: environment)
                 
@@ -233,7 +239,7 @@ class SpectrogramView: VisualGraph, ObservableObject {
                 let greenHue = resolvedColors.green
                 let blueHue = resolvedColors.blue
                 
-                // what does this do
+                // convert color values (0.0 - 1.0) tp UInt16(0 - 65535) and store in buffer
                 buffer[ bufferIndex ] = UInt16(greenHue * Float(multiplier))
                 bufferIndex += 1
                 buffer[ bufferIndex ] = UInt16(redHue * Float(multiplier))
@@ -241,13 +247,14 @@ class SpectrogramView: VisualGraph, ObservableObject {
                 buffer[ bufferIndex ] = UInt16(blueHue * Float(multiplier))
                 bufferIndex += 1
             }
-            
             count = lookupElements
         }
         
+        // expands for each channel used
         let entryCountPerSourceChannel = [UInt8](repeating: amplitudeBins,
                                                  count: inputChannels)
         
+        //
         return vImage.MultidimensionalLookupTable(entryCountPerSourceChannel: entryCountPerSourceChannel,
                                                   destinationChannelCount: outputChannels,
                                                   data: colorData)
@@ -266,6 +273,7 @@ class SpectrogramView: VisualGraph, ObservableObject {
                 byteCountPerRow: freqBins * MemoryLayout<Float>.stride,
                 pixelFormat: vImage.PlanarF.self)
             
+        }
     }
     
     // we dont want this to return path object, better to use canvas directly
@@ -274,4 +282,5 @@ class SpectrogramView: VisualGraph, ObservableObject {
         return Path()
     }
 }
+    
 
