@@ -88,6 +88,29 @@ class SpectrogramView: VisualGraph, ObservableObject {
     
     var spectrogramData: [[Float]] = [] // 2D array for time-frequency spectrogram
     var imageData: [SpectrogramCell] = []
+    var rgbImageFormat = vImage_CGImageFormat(
+        bitsPerComponent: 32,
+        bitsPerPixel: 32 * 3,
+        colorSpace: CGColorSpaceCreateDeviceRGB(),
+        bitmapInfo: CGBitmapInfo(
+            rawValue: kCGBitmapByteOrder32Host.rawValue |
+            CGBitmapInfo.floatComponents.rawValue |
+            CGImageAlphaInfo.none.rawValue))!
+    static var emptyCGImage: CGImage = {
+        let buffer = vImage.PixelBuffer(
+            pixelValues: [0],
+            size: .init(width: 1, height: 1),
+            pixelFormat: vImage.Planar8.self)
+        
+        let fmt = vImage_CGImageFormat(
+            bitsPerComponent: 8,
+            bitsPerPixel: 8 ,
+            colorSpace: CGColorSpaceCreateDeviceGray(),
+            bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.none.rawValue),
+            renderingIntent: .defaultIntent)
+        
+        return buffer.makeCGImage(cgImageFormat: fmt!)!
+    }()
     
     // need to convert spectrogramData elements into spectrogram cells
     struct SpectrogramCell {
@@ -201,10 +224,8 @@ class SpectrogramView: VisualGraph, ObservableObject {
         }
     }
     
-    func colorMapping(cell: SpectrogramCell) {
-        
-    }
-    
+
+    // returns RGB values for blue > red > green for a given intensity value
     static var multidimensionalLookupTable: vImage.MultidimensionalLookupTable = {
         let amplitudeBins = UInt8(32) // divide all amplitude values into 32 bins for individual coloring
         let inputChannels = 1 // floats of intensity values
@@ -262,18 +283,32 @@ class SpectrogramView: VisualGraph, ObservableObject {
     
     
     func drawSpectrogram() throws -> CGImage {
+        lazy var timeSlices = spectrogramData.count
+        lazy var freqBins = spectrogramData[0].count
         
-        let freqValues = self.spectrogramData.withUnsafeMutableBufferPointer {
+        let redBuffer = vImage.PixelBuffer<vImage.PlanarF>(width: timeSlices, height: freqBins)
+        let greenBuffer = vImage.PixelBuffer<vImage.PlanarF>(width: timeSlices, height: freqBins)
+        let blueBuffer = vImage.PixelBuffer<vImage.PlanarF>(width: timeSlices, height: freqBins)
+        let rgbBuffer = vImage.PixelBuffer<vImage.InterleavedFx3>(width: timeSlices, height: freqBins)
+        
+        let freqValues: () = self.spectrogramData.withUnsafeMutableBufferPointer {
             let freqBins = self.spectrogramData[0].count
             let timeSlices = self.spectrogramData.count
-            let planarImageBuffer = vImage.PixelBuffer(
+            let imageBuffer = vImage.PixelBuffer(
                 data: $0.baseAddress!,
-                width: freqBins,
-                height: timeSlices,
-                byteCountPerRow: freqBins * MemoryLayout<Float>.stride,
+                width: timeSlices,
+                height: freqBins,
+                byteCountPerRow: timeSlices * MemoryLayout<Float>.stride,
                 pixelFormat: vImage.PlanarF.self)
             
+            SpectrogramView.multidimensionalLookupTable.apply(
+                sources: [imageBuffer],
+                destinations: [redBuffer, greenBuffer, blueBuffer],
+                interpolation: .half)
+            
+            rgbBuffer.interleave(planarSourceBuffers: [redBuffer, greenBuffer, blueBuffer])
         }
+        return rgbBuffer.makeCGImage(cgImageFormat: rgbImageFormat) ?? SpectrogramView.emptyCGImage
     }
     
     // we dont want this to return path object, better to use canvas directly
