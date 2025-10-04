@@ -96,9 +96,10 @@ struct ContentView: View {
                     if let _ = audioManager.player.file, audioManager.isLoaded {
                         do {
                             //  grabs raw data from the AVAudioFile and processes it via unique downsampling technique, we find issue with the dsData returning nil after it tries the below function
-                            let path = try canvasManager.visualModel?.drawGraph(rect: displaySize, color: Color(.red), lineWidth: CGFloat(1.0))
-                            if let path {
-                                context.stroke(path, with: .color(canvasManager.graphColor))
+                            let cgImage = try canvasManager.visualModel?.drawGraph(rect: displaySize, color: Color(.red), lineWidth: CGFloat(1.0)) // color actually doesnt do anything for spectrogram
+                            
+                            if let cgImage {
+                                context.draw(Image(decorative: cgImage, scale: 1), in: displaySize)
                             }
                         } catch let error {
                             print(errorHandler(error))

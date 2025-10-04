@@ -93,9 +93,6 @@ class SpectrogramView: VisualGraph, ObservableObject {
     var spectrogramData: [[Float]] = [] // 2D array for time-frequency spectrogram
     var CGImageData: [SpectrogramCell]? = []
     
-    
-
-    
     // need to convert spectrogramData elements into spectrogram cells
     struct SpectrogramCell {
         let x: CGFloat
@@ -105,8 +102,22 @@ class SpectrogramView: VisualGraph, ObservableObject {
         let height: CGFloat
     }
     
-    // returns RGB values for blue > red > green for a given intensity value
+    struct SpectrogramCanvas: View {
+        let CGImageData: [SpectrogramCell]
+        var body: some View {
+            ZStack {
+                ForEach(CGImageData.indices, id: \.self) { idx in
+                    let cell = CGImageData[idx]
+                    Rectangle()
+                        .fill(cell.color)
+                        .frame(width: cell.width, height: cell.height)
+                        .position(x: cell.x, y: cell.y)
+                }
+            }
+        }
+    }
     
+    // returns RGB values for blue > red > green for a given intensity value
     
     // buffers are lower level vs arrays and is a contiguoous block of memory, can be managed manually via pointers and UnsafeBufferPointer. convert array into buffer via array.withUnsafeBufferMutableBufferPointer. useful in audio cause easier and faster to access for realtime processing
     
@@ -235,11 +246,18 @@ class SpectrogramView: VisualGraph, ObservableObject {
         }
     }
     
-    func drawGraph(rect: CGRect, color: Color, lineWidth: CGFloat) throws -> CGImage {
+    @MainActor func drawGraph(rect: CGRect, color: Color, lineWidth: CGFloat) throws -> CGImage {
         guard let CGImageData = self.CGImageData
         else {
             throw GraphManagerError.GenericFailure(funcName: "drawGraph", reason: "CGImageData is nil when trying to draw graph")
         }
+        let canvasImage = SpectrogramCanvas(CGImageData: CGImageData)
+        let renderer = ImageRenderer(content: canvasImage)
+        
+        // let renderer = ImageRenderer(content: cell.stroke(color, lineWidth: lineWidth)
+            //.frame(width: rect.width, height: rect.height))
+        
+        return renderer.cgImage! // fix this shit
     }
 }
 
