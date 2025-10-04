@@ -63,7 +63,7 @@ struct ContentView: View {
                                 do {
                                     try audioManager.loadAudio(audio: audioFile)
                                     // loadAudio sets audioManager.player.file to be the current file we need
-                                    try canvasManager.changeGraph(newGraph: .waveform, file: audioManager.player.file!)
+                                    try canvasManager.changeGraph(newGraph: .spectrogram, file: audioManager.player.file!)
                                     try canvasManager.visualModel?.processAudio(AVFile: audioManager.player.file!)
                                     audioManager.isLoaded = true
                                 } catch let error {
