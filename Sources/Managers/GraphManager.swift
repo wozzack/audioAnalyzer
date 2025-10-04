@@ -22,8 +22,9 @@ protocol VisualGraph: ObservableObject, AnyObject {
     var shapeSize: CGRect { get set }
     func processAudio(AVFile: AVAudioFile) throws
     // canvas stuff
-    func drawGraph(rect: CGRect) throws -> Path
+    @MainActor func drawGraph(rect: CGRect, color: Color, lineWidth: CGFloat) throws -> CGImage
 }
+
 class WaveformView: VisualGraph, ObservableObject {
     // just two dimensional data, amplitude and time, need to handle downsampling
     typealias DSType = [(Float, Float)]
@@ -54,7 +55,7 @@ class WaveformView: VisualGraph, ObservableObject {
         }
     }
     // check for cgrect size, dsData existance,
-    func drawGraph(rect: CGRect) throws -> Path {
+    @MainActor func drawGraph(rect: CGRect, color: Color, lineWidth: CGFloat) throws -> CGImage {
         var pathObject = Path()
         var unitTestPath: [(CGFloat, CGFloat, CGFloat)] = []
         guard let dsData = self.dsData
@@ -73,7 +74,10 @@ class WaveformView: VisualGraph, ObservableObject {
             pathObject.move(to: CGPoint(x: normX, y: minY))
             pathObject.addLine(to: CGPoint(x: normX, y: maxY))
         }
-        return pathObject
+        let renderer = ImageRenderer(content: pathObject.stroke(color, lineWidth: lineWidth)
+            .frame(width: rect.width, height: rect.height))
+        
+        return renderer.cgImage! // fix this shit
     }
 }
 
@@ -85,9 +89,11 @@ class SpectrogramView: VisualGraph, ObservableObject {
     var shapeSize = CGRect(x: 0, y: 0, width: 300, height: 600)
     var AVFile: AVAudioFile?
     var graphType: GraphType = .spectrogram
-    
+    // freq and amp. [amp1, amp2, amp3, ...], timeSlice[freqBin]
     var spectrogramData: [[Float]] = [] // 2D array for time-frequency spectrogram
-    var imageData: [SpectrogramCell] = []
+    var CGImageData: [SpectrogramCell] = []
+    
+    
     var rgbImageFormat = vImage_CGImageFormat(
         bitsPerComponent: 32,
         bitsPerPixel: 32 * 3,
@@ -120,6 +126,62 @@ class SpectrogramView: VisualGraph, ObservableObject {
         let width: CGFloat
         let height: CGFloat
     }
+    
+    // returns RGB values for blue > red > green for a given intensity value
+    static var multidimensionalLookupTable: vImage.MultidimensionalLookupTable = {
+        let amplitudeBins = UInt8(32) // divide all amplitude values into 32 bins for individual coloring
+        let inputChannels = 1 // floats of intensity values
+        let outputChannels = 3 // RGB output
+        let lookupElements = Int(pow(Float(amplitudeBins), Float(inputChannels))) * Int(outputChannels)
+        
+        // allocates memory for an array of 16bit unsigned floats (0-65535) without auto-initializing default values, gives us access to buffer and count variable in closure. once all memory is given a value, it will be fully initialized
+        let colorData = [UInt16](unsafeUninitializedCapacity: lookupElements) { buffer, count in
+            // applied as multipier to RGB values
+            let multiplier = CGFloat(UInt16.max)
+            // for when we assign RGB values to buffer
+            var bufferIndex = 0
+            
+            // code to determine Color properties for each amplitude bin
+            for binIndex in ( 0 ..< amplitudeBins) {
+                // so first bin will have value [0.0/31.0], looking like [[0.0/31,0], [1.0/31.0], [2.0/31.0], ...] in its entirety
+                let normalizedValue = CGFloat(binIndex) / CGFloat(amplitudeBins - 1)
+                let startHue: CGFloat = (240.0/360.0) // blue hsv
+                let hue = startHue - (startHue * normalizedValue) // 1.0 = red, 0.5 = green, 0.0 = blue
+                // to determine brightness
+                let brightness = sqrt(normalizedValue)
+                // to determine saturation
+                let saturation = log(1 + normalizedValue - 0.5) * 2
+               
+                
+                let color = Color(hue: hue, saturation: saturation, brightness: brightness)
+                // gives context to what environment it will be rendered in, this case just being the default values
+                let environment = EnvironmentValues()
+                let resolvedColors = color.resolve(in: environment)
+                
+                let redHue = resolvedColors.red
+                let greenHue = resolvedColors.green
+                let blueHue = resolvedColors.blue
+                
+                // convert color values (0.0 - 1.0) tp UInt16(0 - 65535) and store in buffer
+                buffer[ bufferIndex ] = UInt16(greenHue * Float(multiplier))
+                bufferIndex += 1
+                buffer[ bufferIndex ] = UInt16(redHue * Float(multiplier))
+                bufferIndex += 1
+                buffer[ bufferIndex ] = UInt16(blueHue * Float(multiplier))
+                bufferIndex += 1
+            }
+            count = lookupElements
+        }
+        
+        // expands for each channel used
+        let entryCountPerSourceChannel = [UInt8](repeating: amplitudeBins,
+                                                 count: inputChannels)
+        
+        //
+        return vImage.MultidimensionalLookupTable(entryCountPerSourceChannel: entryCountPerSourceChannel,
+                                                  destinationChannelCount: outputChannels,
+                                                  data: colorData)
+    }()
     
     // buffers are lower level vs arrays and is a contiguoous block of memory, can be managed manually via pointers and UnsafeBufferPointer. convert array into buffer via array.withUnsafeBufferMutableBufferPointer. useful in audio cause easier and faster to access for realtime processing
     
@@ -205,84 +267,42 @@ class SpectrogramView: VisualGraph, ObservableObject {
     // an array of arrays, where the outer dimension are time slices and each inner array is divided into freq bins, and the
     // value in each bin represents the magnitude/amplitude
     
-    func convertToImageData() {
+    func colorMapping(ampValue: Float, binIndex: Int, ampBins: Int) throws -> Color {
+            // so first bin will have value [0.0/31.0], looking like [[0.0/31,0], [1.0/31.0], [2.0/31.0], ...] in its entirety
+        let normalizedValue = CGFloat(binIndex) / CGFloat(ampBins - 1)
+        let startHue: CGFloat = (240.0/360.0) // blue hsv
+        let hue = startHue - (startHue * normalizedValue) // 1.0 = red, 0.5 = green, 0.0 = blue
+        let brightness = sqrt(normalizedValue)
+        let saturation = log(1 + normalizedValue - 0.5) * 2
+        
+        let color = Color(hue: hue, saturation: saturation, brightness: brightness)
+        return color
+    }
+    
+    // puts extra layer of abstraction and normalizes the values, use for actual CGImage
+    func convertToImageData() throws {
         let freqBins = CGFloat(self.spectrogramData[0].count)
         let timeSlices = CGFloat(self.spectrogramData.count)
         for (timeIndex, timeSlice) in self.spectrogramData.enumerated() {
             
             // freq and amp. [amp1, amp2, amp3, ...], timeSlice[freqBin]
-            for (freqIndex, freqBin) in timeSlice.enumerated() {
+            for (freqBinIndex, ampValue) in timeSlice.enumerated() {
                 let hSteps = self.shapeSize.height / freqBins
                 let wSteps = self.shapeSize.width / timeSlices // should be deltaTime we are calculating
-                let yNorm = CGFloat(freqBin) * hSteps
+                let yNorm = CGFloat(freqBinIndex) * hSteps
                 let xNorm = CGFloat(timeIndex) * wSteps
-                
-                let spectra = SpectrogramCell(x: xNorm, y: yNorm, color: Color(.red), width: 1, height: 1)
-                self.imageData.append(spectra)
+                do {
+                    let color = try colorMapping(ampValue: ampValue, binIndex: freqBinIndex, ampBins: Int(freqBins))
+                    let spectra = SpectrogramCell(x: xNorm, y: yNorm, color: color, width: 1, height: 1)
+                    self.CGImageData.append(spectra)
+                } catch {
+                    throw GraphManagerError.GenericFailure(funcName: "convertToImageData", reason: "failure to color map")
+                }
             }
-            
         }
     }
-    
 
-    // returns RGB values for blue > red > green for a given intensity value
-    static var multidimensionalLookupTable: vImage.MultidimensionalLookupTable = {
-        let amplitudeBins = UInt8(32) // divide all amplitude values into 32 bins for individual coloring
-        let inputChannels = 1 // floats of intensity values
-        let outputChannels = 3 // RGB output
-        let lookupElements = Int(pow(Float(amplitudeBins), Float(inputChannels))) * Int(outputChannels)
-        
-        // allocates memory for an array of 16bit unsigned floats (0-65535) without auto-initializing default values, gives us access to buffer and count variable in closure. once all memory is given a value, it will be fully initialized
-        let colorData = [UInt16](unsafeUninitializedCapacity: lookupElements) { buffer, count in
-            // applied as multipier to RGB values
-            let multiplier = CGFloat(UInt16.max)
-            // for when we assign RGB values to buffer
-            var bufferIndex = 0
-            
-            // code to determine Color properties for each amplitude bin
-            for binIndex in ( 0 ..< amplitudeBins) {
-                // so first bin will have value [0.0/31.0], looking like [[0.0/31,0], [1.0/31.0], [2.0/31.0], ...] in its entirety
-                let normalizedValue = CGFloat(binIndex) / CGFloat(amplitudeBins - 1)
-                let startHue: CGFloat = (240.0/360.0) // blue hsv
-                let hue = startHue - (startHue * normalizedValue) // 1.0 = red, 0.5 = green, 0.0 = blue
-                // to determine brightness
-                let brightness = sqrt(normalizedValue)
-                // to determine saturation
-                let saturation = log(1 + normalizedValue - 0.5) * 2
-               
-                
-                let color = Color(hue: hue, saturation: saturation, brightness: brightness)
-                // gives context to what environment it will be rendered in, this case just being the default values
-                let environment = EnvironmentValues()
-                let resolvedColors = color.resolve(in: environment)
-                
-                let redHue = resolvedColors.red
-                let greenHue = resolvedColors.green
-                let blueHue = resolvedColors.blue
-                
-                // convert color values (0.0 - 1.0) tp UInt16(0 - 65535) and store in buffer
-                buffer[ bufferIndex ] = UInt16(greenHue * Float(multiplier))
-                bufferIndex += 1
-                buffer[ bufferIndex ] = UInt16(redHue * Float(multiplier))
-                bufferIndex += 1
-                buffer[ bufferIndex ] = UInt16(blueHue * Float(multiplier))
-                bufferIndex += 1
-            }
-            count = lookupElements
-        }
-        
-        // expands for each channel used
-        let entryCountPerSourceChannel = [UInt8](repeating: amplitudeBins,
-                                                 count: inputChannels)
-        
-        //
-        return vImage.MultidimensionalLookupTable(entryCountPerSourceChannel: entryCountPerSourceChannel,
-                                                  destinationChannelCount: outputChannels,
-                                                  data: colorData)
-    }()
-    
-    
-    func drawSpectrogram() throws -> CGImage {
+    func drawGraph(rect: CGRect, color: Color, lineWidth: CGFloat) throws -> CGImage {
         lazy var timeSlices = spectrogramData.count
         lazy var freqBins = spectrogramData[0].count
         
@@ -309,12 +329,6 @@ class SpectrogramView: VisualGraph, ObservableObject {
             rgbBuffer.interleave(planarSourceBuffers: [redBuffer, greenBuffer, blueBuffer])
         }
         return rgbBuffer.makeCGImage(cgImageFormat: rgbImageFormat) ?? SpectrogramView.emptyCGImage
-    }
-    
-    // we dont want this to return path object, better to use canvas directly
-    func drawGraph(rect: CGRect) throws -> Path {
-        
-        return Path()
     }
 }
     
