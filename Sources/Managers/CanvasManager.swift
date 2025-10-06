@@ -51,8 +51,8 @@ class CanvasManager: ObservableObject {
             do {
                 let model = SpectrogramView()
                 try model.processAudio(AVFile: file)
-                try model.fileDFT(frameSize: 2048, hopSize: 2)
-                try model.convertToImageData()
+                //try model.fileDFT(frameSize: 2048, hopSize: 2)
+                //try model.convertToImageData()
                 self.visualModel = model
                 self.graphShowing = true
             } catch {

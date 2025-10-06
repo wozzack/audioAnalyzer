@@ -1,6 +1,6 @@
 // pre-render with core graphics to UIImage for waveform via canvas
 // ignore above, use canvas since core graphics requires a wrapper
-// use accelerate framework with canvas or full metal for spectrogram
+// use accelerate framework with canvas or full metal for spectrogram test
 
 import AVFoundation
 
@@ -154,6 +154,9 @@ class SpectrogramView: VisualGraph, ObservableObject {
             
             // an array of floats representing magnitude
             self.dsData = samples
+            try fileDFT(frameSize: 1024, hopSize: 512)
+            try convertToImageData()
+            
                     
         } else {
             throw GraphManagerError.GenericFailure(funcName: "processAudio", reason: "AVFile passed to processAudio does not match the AVFile stored in the WaveformView instance")
@@ -237,13 +240,16 @@ class SpectrogramView: VisualGraph, ObservableObject {
                     let normAmpValue = ampValue / maxAmpValue
                     let colorIndex = min(max(Int(normAmpValue * Float(colorBins - 1)), 0), colorBins - 1)
                     let color = try colorMapping(ampValue: ampValue, colorIndex: colorIndex)
-                    let spectra = SpectrogramCell(x: xNorm, y: yNorm, color: color, width: 1, height: 1)
+                    let cellWidth = self.shapeSize.width / CGFloat(timeSlices)
+                    let cellHeight = self.shapeSize.height / CGFloat(freqBins)
+                    let spectra = SpectrogramCell(x: xNorm, y: yNorm, color: color, width: cellWidth, height: cellHeight)
                     self.CGImageData?.append(spectra)
                 } catch {
                     throw GraphManagerError.GenericFailure(funcName: "convertToImageData", reason: "failure to color map")
                 }
             }
         }
+        print("reached end of convertToImageData")
     }
     
     @MainActor func drawGraph(rect: CGRect, color: Color, lineWidth: CGFloat) throws -> CGImage {
