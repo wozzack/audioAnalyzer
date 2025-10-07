@@ -94,6 +94,11 @@ class SpectrogramView: VisualGraph, ObservableObject {
     var CGImageData: [SpectrogramCell]? = []
     
     // need to convert spectrogramData elements into spectrogram cells
+    
+    lazy var forwardDFT: vDSP.DiscreteFourierTransform<DSPSplitComplex<Float>> = {
+        try! vDSP.DiscreteFourierTransform(previous: nil, count: timeFrame.count, direction: .forward, transformType: .complexComplex, ofType: Float.self)
+    }
+    
     struct SpectrogramCell {
         let x: CGFloat
         let y: CGFloat
@@ -198,7 +203,6 @@ class SpectrogramView: VisualGraph, ObservableObject {
                                      count: timeFrame.count,
                                      isHalfWindow: false)
         let windowedData = vDSP.multiply(timeFrame, hannWindow)
-        let forwardDFT = try vDSP.DiscreteFourierTransform(previous: nil, count: timeFrame.count, direction: .forward, transformType: .complexComplex, ofType: Float.self)
         let imaginary = [Float](repeating: 0, count: timeFrame.count)
         let (r, i) = forwardDFT.transform(real: windowedData, imaginary: imaginary)
         let magnitude = zip(r, i).map { sqrt($0 * $0 + $1 * $1) }
