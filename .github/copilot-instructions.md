@@ -1,0 +1,1 @@
+Please do not automactically offer code replacements to my existing code unless directly asked. This means when you say something like "Let me rewrite X for you so that it fixes Y problem", and then I have to either accept or undo the changes you auto inserted.
