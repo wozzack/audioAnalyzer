@@ -108,8 +108,10 @@ class SpectrogramView: VisualGraph, ObservableObject {
         let height: CGFloat
     }
     
+    
     struct SpectrogramCanvas: View {
         let CGImageData: [SpectrogramCell]
+        
         
         @ViewBuilder
         private func cellView(for cell: SpectrogramCell) -> some View {
@@ -127,6 +129,7 @@ class SpectrogramView: VisualGraph, ObservableObject {
             }
         }
     }
+     
     
     // returns RGB values for blue > red > green for a given intensity value
     
@@ -166,7 +169,7 @@ class SpectrogramView: VisualGraph, ObservableObject {
             // an array of floats representing magnitude
             self.dsData = samples
             try fileDFT(frameSize: 1024, hopSize: 512)
-            try convertToImageData()
+            // try convertToImageData()
             
                     
         } else {
@@ -239,7 +242,7 @@ class SpectrogramView: VisualGraph, ObservableObject {
     // an array of arrays, where the outer dimension are time slices and each inner array is divided into freq bins, and the
     // value in each bin represents the magnitude/amplitude
     
-    func colorMapping(ampValue: Float, colorIndex: Int) throws -> Color {
+    func ODcolorMapping(ampValue: Float, colorIndex: Int) throws -> Color {
             // so first bin will have value [0.0/31.0], looking like [[0.0/31,0], [1.0/31.0], [2.0/31.0], ...] in its entirety
         let colorBins = 32 // design choice
         let normalizedValue = CGFloat(colorIndex) / CGFloat(colorBins - 1)
@@ -253,7 +256,7 @@ class SpectrogramView: VisualGraph, ObservableObject {
     }
     
     // puts extra layer of abstraction and normalizes the values, use for actual CGImage
-    func convertToImageData() throws {
+    func ODconvertToImageData() throws {
         let freqBins = CGFloat(self.spectrogramData[0].count)
         let timeSlices = CGFloat(self.spectrogramData.count)
         let colorBins = 32 // design decision
@@ -271,7 +274,7 @@ class SpectrogramView: VisualGraph, ObservableObject {
                 do {
                     let normAmpValue = ampValue / maxAmpValue
                     let colorIndex = min(max(Int(normAmpValue * Float(colorBins - 1)), 0), colorBins - 1)
-                    let color = try colorMapping(ampValue: ampValue, colorIndex: colorIndex)
+                    let color = try ODcolorMapping(ampValue: ampValue, colorIndex: colorIndex)
                     let cellWidth = self.shapeSize.width / CGFloat(timeSlices)
                     let cellHeight = self.shapeSize.height / CGFloat(freqBins)
                     let spectra = SpectrogramCell(x: xNorm, y: yNorm, color: color, width: cellWidth, height: cellHeight)
@@ -284,7 +287,7 @@ class SpectrogramView: VisualGraph, ObservableObject {
         print("reached end of convertToImageData")
     }
     
-    @MainActor func drawGraph(rect: CGRect, color: Color, lineWidth: CGFloat) throws -> CGImage {
+    @MainActor func ODdrawGraph(rect: CGRect, color: Color, lineWidth: CGFloat) throws -> CGImage {
          guard let CGImageData = self.CGImageData
          else {
              throw GraphManagerError.GenericFailure(funcName: "drawGraph", reason: "CGImageData is nil when trying to draw graph")
@@ -298,12 +301,13 @@ class SpectrogramView: VisualGraph, ObservableObject {
         return cgImage
      }
     
-    func drawGraph2(rect: CGRect, color: Color, lineWidth: CGFloat) throws -> CGImage {
+    func drawGraph(rect: CGRect, color: Color, lineWidth: CGFloat) throws -> CGImage {
         // created once actually called, implies spectrogram data exists at this point due to control flow
         lazy var timeSlices = spectrogramData.count
         lazy var freqBins = spectrogramData[0].count
+        print("reached drawGraph")
         
-        var rgbImageFormat = vImage_CGImageFormat(
+        let rgbImageFormat = vImage_CGImageFormat(
             bitsPerComponent: 32,
             bitsPerPixel: 32 * 3,
             colorSpace: CGColorSpaceCreateDeviceRGB(),
@@ -312,16 +316,25 @@ class SpectrogramView: VisualGraph, ObservableObject {
                 CGBitmapInfo.floatComponents.rawValue |
                 CGImageAlphaInfo.none.rawValue))!
         
+        // convert spectrogramData from an array of [Float] to a contiguous block of memory
+        var flatSpectrogramData = [Float](repeating: 0, count: timeSlices * freqBins)
+        for timeSlice in 0..<timeSlices {
+            for freqBin in 0..<freqBins {
+                // row-major: row = f, col = t
+                let flatIndex = freqBin * timeSlices + timeSlice // timeSlice * freqBins + freqBin if we had timeSlice as height instead of width?
+                flatSpectrogramData[flatIndex] = self.spectrogramData[timeSlice][freqBin]
+            }
+        }
+        
         // creates a pixelbuffer representing an image for each RGB channel, and then creating the final buffer when interleaved
         let redBuffer = vImage.PixelBuffer<vImage.PlanarF>(width: timeSlices, height: freqBins)
         let greenBuffer = vImage.PixelBuffer<vImage.PlanarF>(width: timeSlices, height: freqBins)
         let blueBuffer = vImage.PixelBuffer<vImage.PlanarF>(width: timeSlices, height: freqBins)
         let rgbBuffer = vImage.PixelBuffer<vImage.InterleavedFx3>(width: timeSlices, height: freqBins)
         
+        print("allocated buffers")
         // converts spectrogramData from an array to an unsafeMutableBufferPointer (has count, type, memory address, and built in bounds checking
-        let freqValues: () = self.spectrogramData.withUnsafeMutableBufferPointer { unsafeBufferPointer in
-            let freqBins = self.spectrogramData[0].count
-            let timeSlices = self.spectrogramData.count
+        let _: () = flatSpectrogramData.withUnsafeMutableBufferPointer { unsafeBufferPointer in
             let imageBuffer = vImage.PixelBuffer(
                 data: unsafeBufferPointer.baseAddress!,
                 width: timeSlices,
@@ -333,12 +346,16 @@ class SpectrogramView: VisualGraph, ObservableObject {
                 sources: [imageBuffer],
                 destinations: [redBuffer, greenBuffer, blueBuffer],
                 interpolation: .half)
+            print("applied lookup table")
             
             rgbBuffer.interleave(planarSourceBuffers: [redBuffer, greenBuffer, blueBuffer])
+            print("finished interleaving buffers")
         }
+        print("about to make CGImage")
         guard let cgImage = rgbBuffer.makeCGImage(cgImageFormat: rgbImageFormat) else {
             throw GraphManagerError.GenericFailure(funcName: "drawGraph2", reason: "failed to create CGImage from rgbBuffer")
         }
+        print("finished drawGraph")
         return cgImage // ?? SpectrogramView.emptyCGImage
      }
     
