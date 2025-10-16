@@ -4,4 +4,5 @@
 
 [Planned]
 - Live microphone input processing.
+- [C4] Component Analysis + Data Flow Diagram + General Documentation
 - Performance hot-fixes for audio scrubbing.

@@ -54,6 +54,47 @@ class WaveformView: VisualGraph, ObservableObject {
             throw GraphManagerError.GenericFailure(funcName: "processAudio", reason: "AVFile passed to processAudio does not match the AVFile stored in the WaveformView instance")
         }
     }
+
+    func minmaxDownSampling(length: Int, file: AVAudioFile) throws -> [(Float, Float)] {
+        guard let buffer = try AVAudioPCMBuffer(file: AVAudioFile(forReading: file.url)), buffer.floatChannelData != nil
+        else {
+            throw GraphManagerError.GenericFailure(funcName: "minmaxDownSampling", reason: "failed to create AVAudioPCMBuffer from AVAudioFile")
+        }
+        
+        do {
+            // changed to below framelength for error system checking
+            guard buffer.floatChannelData != nil, buffer.frameLength > 0
+            else {
+                throw GraphManagerError.GenericFailure(funcName: "mixmaxDownSampling", reason: "buffer has no floatChannelData or frameLength is invalid")
+            }
+            let channelCount = Int(buffer.format.channelCount)
+            //for remaining fraction samples that can be accounted for by adding one more sample
+            let totalSamples = Int(buffer.frameLength) / length + (Int(buffer.frameLength) % length == 0 ? 0 : 1)
+            var downSamples: [(Float, Float)] = Array(repeating: (0.0, 0.0), count: totalSamples)
+            
+            for channel in 0..<channelCount {
+                let channelData = UnsafeBufferPointer(
+                    start: buffer.floatChannelData?[channel],
+                    count: Int(buffer.frameLength))
+                for j in stride(from: 0, to: Int(buffer.frameLength), by: length) {
+                    // splits single channel data into chunks of length n, and in that chunk searches for the highest and lowest value to append.
+                    // issue is that we need it for all channels, so we need to either average the min and max values across all channels or pick absolutely
+                    let chunkIndex = j / length
+                    let chunk = channelData[j..<min(j + length, Int(buffer.frameLength))]
+                    let minSample = chunk.min() ?? 0
+                    let maxSample = chunk.max() ?? 0
+                    downSamples[chunkIndex].0 += minSample / Float(channelCount)
+                    downSamples[chunkIndex].1 += maxSample / Float(channelCount)
+                }
+            }
+            // downSamples is an array of tuples that represent the min and max samples
+            return downSamples
+            // end of do clause
+        } catch {
+            throw GraphManagerError.GenericFailure(funcName: "minmaxDownSampling", reason: "failed during downsampling process for AVAudioFile")
+        }
+    }
+
     // check for cgrect size, dsData existance,
     @MainActor func drawGraph(rect: CGRect, color: Color, lineWidth: CGFloat) throws -> CGImage {
         var pathObject = Path()
