@@ -10,6 +10,7 @@
 		5D7C521A2E4A949200AD5022 /* AudioKit in Frameworks */ = {isa = PBXBuildFile; productRef = 5D7C52192E4A949200AD5022 /* AudioKit */; };
 		5D7C521C2E4A949700AD5022 /* Waveform in Frameworks */ = {isa = PBXBuildFile; productRef = 5D7C521B2E4A949700AD5022 /* Waveform */; };
 		5DAAC7842E7BDA4B0041A499 /* README.md in Resources */ = {isa = PBXBuildFile; fileRef = 5DAAC7832E7BDA4B0041A499 /* README.md */; };
+		83B5390E2FB46B480027CEDF /* Atomics in Frameworks */ = {isa = PBXBuildFile; productRef = 83B5390D2FB46B480027CEDF /* Atomics */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -53,6 +54,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				83B5390E2FB46B480027CEDF /* Atomics in Frameworks */,
 				5D7C521A2E4A949200AD5022 /* AudioKit in Frameworks */,
 				5D7C521C2E4A949700AD5022 /* Waveform in Frameworks */,
 			);
@@ -69,7 +71,15 @@
 				5D6D256C2E345E1500E41CCD /* AudioDemo.app */,
 				5D7AC19F2E6FD66800FFED78 /* AudioDemoTests.xctest */,
 				5DAAC7832E7BDA4B0041A499 /* README.md */,
+				83B5390C2FB46B480027CEDF /* Frameworks */,
 			);
+			sourceTree = "<group>";
+		};
+		83B5390C2FB46B480027CEDF /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Frameworks;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -117,6 +127,7 @@
 			packageProductDependencies = (
 				5D7C52192E4A949200AD5022 /* AudioKit */,
 				5D7C521B2E4A949700AD5022 /* Waveform */,
+				83B5390D2FB46B480027CEDF /* Atomics */,
 			);
 			productName = AudioDemo;
 			productReference = 5D6D256C2E345E1500E41CCD /* AudioDemo.app */;
@@ -154,6 +165,7 @@
 			packageReferences = (
 				5D7C52162E4A91FE00AD5022 /* XCRemoteSwiftPackageReference "AudioKit" */,
 				5D7C52172E4A923E00AD5022 /* XCRemoteSwiftPackageReference "Waveform" */,
+				83B538BE2FAC34550027CEDF /* XCRemoteSwiftPackageReference "swift-atomics" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 5D9B85022E34235A00B9C833;
@@ -370,12 +382,24 @@
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = Sources/AudioDemo.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
-				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = Q552JHD2D5;
+				ENABLE_APP_SANDBOX = YES;
+				ENABLE_INCOMING_NETWORK_CONNECTIONS = NO;
+				ENABLE_OUTGOING_NETWORK_CONNECTIONS = NO;
 				ENABLE_PREVIEWS = YES;
+				ENABLE_RESOURCE_ACCESS_AUDIO_INPUT = YES;
+				ENABLE_RESOURCE_ACCESS_BLUETOOTH = NO;
+				ENABLE_RESOURCE_ACCESS_CALENDARS = NO;
+				ENABLE_RESOURCE_ACCESS_CAMERA = NO;
+				ENABLE_RESOURCE_ACCESS_CONTACTS = NO;
+				ENABLE_RESOURCE_ACCESS_LOCATION = NO;
+				ENABLE_RESOURCE_ACCESS_PRINTING = NO;
+				ENABLE_RESOURCE_ACCESS_USB = NO;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = heehee;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
@@ -414,12 +438,24 @@
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = Sources/AudioDemo.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
-				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = Q552JHD2D5;
+				ENABLE_APP_SANDBOX = YES;
+				ENABLE_INCOMING_NETWORK_CONNECTIONS = NO;
+				ENABLE_OUTGOING_NETWORK_CONNECTIONS = NO;
 				ENABLE_PREVIEWS = YES;
+				ENABLE_RESOURCE_ACCESS_AUDIO_INPUT = YES;
+				ENABLE_RESOURCE_ACCESS_BLUETOOTH = NO;
+				ENABLE_RESOURCE_ACCESS_CALENDARS = NO;
+				ENABLE_RESOURCE_ACCESS_CAMERA = NO;
+				ENABLE_RESOURCE_ACCESS_CONTACTS = NO;
+				ENABLE_RESOURCE_ACCESS_LOCATION = NO;
+				ENABLE_RESOURCE_ACCESS_PRINTING = NO;
+				ENABLE_RESOURCE_ACCESS_USB = NO;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = heehee;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
@@ -498,6 +534,14 @@
 				minimumVersion = 1.0.2;
 			};
 		};
+		83B538BE2FAC34550027CEDF /* XCRemoteSwiftPackageReference "swift-atomics" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/apple/swift-atomics.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.3.0;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -510,6 +554,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 5D7C52172E4A923E00AD5022 /* XCRemoteSwiftPackageReference "Waveform" */;
 			productName = Waveform;
+		};
+		83B5390D2FB46B480027CEDF /* Atomics */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 83B538BE2FAC34550027CEDF /* XCRemoteSwiftPackageReference "swift-atomics" */;
+			productName = Atomics;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

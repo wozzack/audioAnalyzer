@@ -6,12 +6,14 @@ struct ContentView: View {
     @StateObject var audioManager = AudioManager()
     @StateObject var waveformView = WaveformView()
     @StateObject var canvasManager = CanvasManager()
+    @StateObject var micManager = MicManager()
     var displaySize = CGRect(x: 0, y: 0, width: 300, height: 600)
     
     @State var song: String = "misato.mp3"
     @State var errorMessage: String?
     @State var isPlaylistShowing: Bool = false
     @State var progressSlider: Double = 0.0
+    @State var amplitudeLevel: Float = 0.0
     
     var body: some View {
         HStack {
@@ -105,7 +107,7 @@ struct ContentView: View {
                             print(errorHandler(error))
                         }
                     } else {
-                        let placeholderText = Text("No audio loaded")
+                        let placeholderText = Text("\(micManager.ampLevel)")
                         context.draw(placeholderText, at: CGPoint(x: size.width / 2, y: size.height / 2))
                     }
     

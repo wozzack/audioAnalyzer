@@ -3,18 +3,14 @@
 // use accelerate framework with canvas or full metal for spectrogram test
 
 import AVFoundation
-
 import AudioKit
-
 import SwiftUI
-
 import Waveform
-
 import Accelerate
 
 protocol VisualGraph: ObservableObject, AnyObject {
     associatedtype DSType
-    // requires that any conforming class has this variable accessible and it is read-only as set is not used
+    //guu requires that any conforming class has this variable accessible and it is read-only as set is not used
     var graphType: GraphType { get }
     // raw data is used to draw the graph, needs to be processed before drawing
     var rawData: [Any]? { get }
