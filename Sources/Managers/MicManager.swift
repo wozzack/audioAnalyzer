@@ -17,6 +17,11 @@ import Dispatch
 import Cocoa
 
 /*
+ 
+ [ Audio thread ]  →  [ Ring buffer ]  →  [ Disk-writer thread ]
+  real-time            shared memory       background queue
+  captures samples     absorbs jitter      writes to file
+ 
  MAIN/UI [IN: ampLevel to level, OUT: meter value to swiftUI state]
  receives user instructions, perodically checks ampLevel, configures avaudioengine and allocates ring buffer, sets recordingFlag (atomic), updates display independent of audio rate
  AUDIO THREAD [IN: pcm buffers from tap, OUT: samples to ringBuffer, rms level to ampLevel]
@@ -36,6 +41,7 @@ class MicManager: ObservableObject {
     var engine: AVAudioEngine = AVAudioEngine()
     var audioFile: AVAudioFile = AVAudioFile()
     var ringBuffer: RingBuffer<Float>
+    let outputURL: URL
     
     // managed atomics
     let recordingFlag: ManagedAtomic<Bool>
@@ -46,16 +52,17 @@ class MicManager: ObservableObject {
     var writeQueue: DispatchQueue
     
     init(outputURL: URL, bufferSize: Int) {
+        self.outputURL = outputURL
         // 1. allocate ring buffer
-        ringBuffer = RingBuffer<Float>()
+        ringBuffer = RingBuffer<UInt32>(buffer: [UInt32], writeIndex: ManagedAtomic<Int>, readIndex: ManagedAtomic<Int>, size: ManagedAtomic<Int>)
         // 2. initialize atomics
-        recordingFlag = ManagedAtomic<Boolean>(false)
+        recordingFlag = ManagedAtomic<Bool>(false)
         ampLevel = ManagedAtomic<UInt32>(Float(0.0).bitPattern)
         droppedBuffers = ManagedAtomic<Int>(0)
         // 3. create AVAudioFile for writing
         audioFile = try AVAudioFile(forWriting: outputURL, settings: "mp3")
         // 4. configure engine tap
-        engine.inputNode.installTap(onBus: 0, bufferSize: 256, format: nil) { buffer, time in
+        engine.inputNode.installTap(onBus: 0, bufferSize: 1024, format: nil) { buffer, time in
             // ur mom
         }
 
@@ -64,7 +71,7 @@ class MicManager: ObservableObject {
     // create timer here since cancelling is forever, plus it makes more sense to have it tied to startrecording instead of init in terms of function clarity
     func startRecording() {
         // 1. set recordingFlag, use store cause its atomic
-        recordingFlag.store(true)
+        recordingFlag.store(true, ordering: .releasing)
         // 2. start engine, why though?
         try? engine.start()
         // 3. create suspended timer with the associated writer queue
@@ -97,20 +104,58 @@ class MicManager: ObservableObject {
     
     func bufferHandler(_ pcm: AVAudioPCMBuffer) {
         // called from tap callback (audio thread)
-        
+        guard pcm.floatChannelData != nil, pcm.frameLength > 0
+        else {
+            return
+        }
+        guard let samples = pcm.floatChannelData?[0]
+        else {
+            return
+        }
         // compute level, atomic store to ampLevel
         ampLevel.store(computeLevel(buffer: pcm).bitPattern, ordering: .relaxed)
-        // write samples into buffer
-        // if failure, droppedBuffers += 1
+        // write samples from pcm buffer into ring buffer
+        let dropped = droppedBuffers.load(ordering: .relaxed)
+        for i in 0..<pcm.frameLength {
+            if !ringBuffer.write(data: pcm.floatChannelData?[0][Int(i)] ?? 0.0) {
+                droppedBuffers.store(dropped + 1, ordering: .relaxed)
+            }
+        }
+        // if failure (full or otherwise, need to call write from RingBuffer, droppedBuffers += 1
+        // update ring write index
         // no allocation, no locks, no capes
     }
     
     func drainWrite() {
         // called by disk timer (background queue)
         
-        // read samples from buffer
+        // read samples from ring buffer
+        let ringSample = ringBuffer.read()
         // pack into pcm buffer
+        // set avaudio format, must match that of the avaudiofile
+        guard let format = AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: 44100, channels: 1, interleaved: false)
+        else {
+            return
+        }
+        let pcmBuffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 1024)
+        // create pointer to iterate
+        
+        let channels = pcmBuffer?.floatChannelData
+        let channelCount = pcmBuffer?.format.channelCount ?? 0
+        
+        for channel in 0..<channelCount {
+            // channels is a unsafemutablebufferpointer that we can iterate on
+            let samples = channels?[Int(channel)]
+            for frame in 0..<1024 {
+                samples?[frame] = ringBuffer.read() ?? 0.0
+            }
+        }
+        
+        pcmBuffer?.frameLength = AVAudioFrameCount()
+        // need to convert samples into an AudioBufferList
+        
         // write to file
+        audioFile = try AVAudioFile(url: outputURL, fromBuffer: pcmBuffer)
         // note droppedBuffers in error message
     }
     
@@ -166,25 +211,27 @@ class RingBuffer <T> {
     }
     
     func read() -> T? {
-        var reader = readIndex.load()
-        var writer = writeIndex.load()
+        let reader = readIndex.load(ordering: .relaxed)
+        let writer = writeIndex.load(ordering: .relaxed)
+        let capacity = size.load(ordering: .relaxed)
         // if empty
-        if reader % size == writer {
+        if reader % capacity == writer {
             return nil
         }
-        var data = buffer[reader]
-        readIndex.store((reader + 1) % size)
+        let data = buffer[reader]
+        readIndex.store((reader + 1) % capacity, ordering: .relaxed)
         return data
     }
     func write(data: T) -> Bool {
-        var reader = readIndex.load()
-        var writer = writeIndex.load()
+        let reader = readIndex.load(ordering: .relaxed)
+        let writer = writeIndex.load(ordering: .relaxed)
+        let capacity = size.load(ordering: .relaxed)
         // if full
-        if (writer + 1) % size == reader {
+        if (writer + 1) % capacity == reader {
             return false
         }
         buffer[writer] = data
-        writeIndex.store((writer + 1) % size)
+        writeIndex.store((writer + 1) % capacity, ordering: .relaxed)
         return true
     }
 }

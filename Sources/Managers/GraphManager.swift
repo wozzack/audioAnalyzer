@@ -147,6 +147,7 @@ class SpectrogramView: VisualGraph, ObservableObject {
             else {
                 throw GraphManagerError.GenericFailure(funcName: "processAudio", reason: "failure to properly allocate PCM buffer")
             }
+            // difference between floatchanneldata accessed from avfile vs pcm buffer
             self.rawData = [AVFile.floatChannelData() as Any]
             self.AVFile = AVFile
             let length = Int(self.shapeSize.width)
