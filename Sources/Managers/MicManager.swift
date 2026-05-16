@@ -18,9 +18,9 @@ import Cocoa
 
 /*
  
- [ Audio thread ]  →  [ Ring buffer ]  →  [ Disk-writer thread ]
-  real-time            shared memory       background queue
-  captures samples     absorbs jitter      writes to file
+ audio thread > ring buffer > disk-writer thread
+ real-time > shared memory > background queue
+captures samples > absorbs jitter > writes to file
  
  MAIN/UI [IN: ampLevel to level, OUT: meter value to swiftUI state]
  receives user instructions, perodically checks ampLevel, configures avaudioengine and allocates ring buffer, sets recordingFlag (atomic), updates display independent of audio rate
@@ -32,10 +32,6 @@ import Cocoa
 class MicManager: ObservableObject {
     // need avaudioengine tap to access the raw pcm buffer, which allows kme to run FFT on it
     // PCM buffer is the input for FFT, PCM is a flat array of floats representing amplitude at i time
-    // 1. Declare intent in Info.plist, 2. Request permission at runtime, 3. set up engine and install tap.
-    //
-    
-    
     // need microphone permissions, info.plist key, app entitlements, error handling, memory cycling w. weak capture
     
     var engine: AVAudioEngine = AVAudioEngine()
@@ -51,16 +47,29 @@ class MicManager: ObservableObject {
     var writeTimer: DispatchSourceTimer
     var writeQueue: DispatchQueue
     
-    init(outputURL: URL, bufferSize: Int) {
+    init(outputURL: URL, bufferSize: Int) throws {
         self.outputURL = outputURL
         // 1. allocate ring buffer
-        ringBuffer = RingBuffer<UInt32>(buffer: [UInt32], writeIndex: ManagedAtomic<Int>, readIndex: ManagedAtomic<Int>, size: ManagedAtomic<Int>)
+        ringBuffer = RingBuffer<Float>(
+            buffer: Array(repeating: 0.0, count: bufferSize),
+            writeIndex: ManagedAtomic<Int>(0),
+            readIndex: ManagedAtomic<Int>(0),
+            size: ManagedAtomic<Int>(bufferSize)
+        )
         // 2. initialize atomics
         recordingFlag = ManagedAtomic<Bool>(false)
         ampLevel = ManagedAtomic<UInt32>(Float(0.0).bitPattern)
         droppedBuffers = ManagedAtomic<Int>(0)
         // 3. create AVAudioFile for writing
-        audioFile = try AVAudioFile(forWriting: outputURL, settings: "mp3")
+        let settings: [String: Any] = [
+            AVFormatIDKey: kAudioFormatLinearPCM,
+            AVSampleRateKey: 44100.0,
+            AVNumberOfChannelsKey: 1,
+            AVLinearPCMBitDepthKey: 32,
+            AVLinearPCMIsFloatKey: true,
+            AVLinearPCMIsNonInterleaved: true
+        ]
+        audioFile = try AVAudioFile(forWriting: outputURL, settings: settings)
         // 4. configure engine tap
         engine.inputNode.installTap(onBus: 0, bufferSize: 1024, format: nil) { buffer, time in
             // ur mom
