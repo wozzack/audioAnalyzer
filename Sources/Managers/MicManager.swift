@@ -37,6 +37,7 @@ class MicManager: ObservableObject {
     var engine: AVAudioEngine = AVAudioEngine()
     var audioFile: AVAudioFile = AVAudioFile()
     var ringBuffer: RingBuffer<Float>
+    var drainBuffer: AVAudioPCMBuffer
     let outputURL: URL
     
     // managed atomics
@@ -54,7 +55,7 @@ class MicManager: ObservableObject {
             buffer: Array(repeating: 0.0, count: bufferSize),
             writeIndex: ManagedAtomic<Int>(0),
             readIndex: ManagedAtomic<Int>(0),
-            size: ManagedAtomic<Int>(bufferSize)
+            capacity: Int(65536) // good sweet spot
         )
         // 2. initialize atomics
         recordingFlag = ManagedAtomic<Bool>(false)
@@ -63,6 +64,7 @@ class MicManager: ObservableObject {
         // initialize queue
         writeQueue = DispatchQueue(label: "disk-writer", qos: .utility)
         // 3. create AVAudioFile for writing
+        /*
         let settings: [String: Any] = [
             AVFormatIDKey: kAudioFormatLinearPCM,
             AVSampleRateKey: 44100.0,
@@ -72,11 +74,7 @@ class MicManager: ObservableObject {
             AVLinearPCMIsNonInterleaved: true
         ]
         audioFile = try AVAudioFile(forWriting: outputURL, settings: settings)
-        // 4. configure engine tap
-        engine.inputNode.installTap(onBus: 0, bufferSize: 1024, format: nil) { buffer, time in
-            // ur mom
-        }
-
+         */
         
     }
     /*
@@ -84,11 +82,27 @@ class MicManager: ObservableObject {
      Needs: engine, queue, and recordingFlag initialization
      Gives: timer object scheduling and initialization, updates boolean of recordingFlag, starts engine and timer objects
      */
-    func startRecording() {
+    func startRecording() throws {
+        
+        // should install tap here?, need to request permissions from user
+        
         // 1. set recordingFlag, use store cause its atomic
         recordingFlag.store(true, ordering: .releasing)
         // 2. start engine, why though?
         try? engine.start()
+        // 2a. install tap
+        let format = engine.inputNode.outputFormat(forBus: 0)
+        // frameCapacity = drain interval * sample rate, multiplied by 2 for safety margin since drain interval isnt perfectly consistant
+        drainBuffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 9600) ?? <#default value#>
+        engine.inputNode.installTap(onBus: 0, bufferSize: 1024, format: format) { buffer, time in
+            // do sometyhing
+        }
+        do {
+            audioFile = try AVAudioFile(forWriting: outputURL, settings: format.settings)
+        } catch {
+            throw AudioManagerError.GenericFailure(funcName: "startRecording", reason: "failed to create avaudiofile")
+        }
+        
         // 3. create suspended timer with the associated writer queue
         var timer = DispatchSource.makeTimerSource(queue: writeQueue)
         // every 100ms it drains the buffer and writes to file
@@ -167,11 +181,12 @@ class MicManager: ObservableObject {
             return
         }
         // pack ring samples into pcm buffers
-        let pcmBuffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 1024)
-        pcmBuffer?.frameLength = AVAudioFrameCount()
+        // could also just allocate pcm buffer in startRecording... refill in here and set to nil in stopRecording
+        // let pcmBuffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 9600)
+        //pcmBuffer?.frameLength = AVAudioFrameCount()
         // create pointer to iterate
-        let channels = pcmBuffer?.floatChannelData
-        let channelCount = pcmBuffer?.format.channelCount ?? 0
+        let channels = drainBuffer.floatChannelData
+        let channelCount = drainBuffer.format.channelCount
         
         // ??? samples is a 1d array not 2d... and it doesnt exist outside the loop ;/
         // i need to edit pcmBuffer via floatChannelData
@@ -179,15 +194,24 @@ class MicManager: ObservableObject {
             // channels is a unsafemutablebufferpointer that we can iterate on
             // samples is the nth value pointer iterating through a single channel
             let samples = channels?[Int(channel)]
-            for frame in 0..<1024 {
-                samples?[frame] = ringBuffer.read() ?? 0.0
+            
+            // loop until either ringbuffer read returns nil or we filled pcmbuffer capacity
+            for frame in 0..<drainBuffer.frameCapacity {
+                let sample = ringBuffer.read()
+                if sample != nil {
+                    samples?[Int(frame)] = sample ?? 0.0
+                } else {
+                    drainBuffer.frameLength = AVAudioFrameCount(frame)
+                    break
+                }
             }
+            
         }
         // need to convert samples into an AudioBufferList
         
         // write to file
         do {
-            audioFile = try AVAudioFile(url: outputURL, fromBuffer: pcmBuffer!)
+            audioFile = try AVAudioFile(url: outputURL, fromBuffer: drainBuffer)
         } catch {
             let dropped = droppedBuffers.load(ordering: .relaxed)
             print("drainWrite failed: \(error) (droppedBuffers: \(dropped))")
@@ -195,30 +219,7 @@ class MicManager: ObservableObject {
         // note droppedBuffers in error message
     }
     
-    func setup() {
-        
-        // set up avaudioengine
-        let input = engine.inputNode
-        let format = input.outputFormat(forBus: 0)
-        
-        // attach tap to capture mic buffers, maybe use avaudiosink instead...
-        input.installTap(onBus: 0, bufferSize: 1024, format: format) { buffer, time in
-            let level = self.computeLevel(buffer: buffer)
-            
-            // basically UI need priority over all other processes, so it sends it to the main thread to be done without dependence on other processes. there exists a thread thats very fast for audio processing, but it aint no main thread
-            let audioUIQueue = DispatchQueue(label: "audioUI")
-            audioUIQueue.async {
-                self.ampLevel.store(level.bitPattern, ordering: .relaxed)
-            }
-            
-            audioUIQueue.sync {
-                _ = Float(bitPattern: self.ampLevel.load(ordering: .relaxed))
-            }
-        }
-        
-        // try? engine.start()
-    }
-    
+    // placeholder for actual ftt calculation
     func computeLevel(buffer: AVAudioPCMBuffer) -> Float {
         guard let channelData = buffer.floatChannelData else {return 0}
         let samples = channelData[0]
@@ -235,39 +236,37 @@ class MicManager: ObservableObject {
 
 class RingBuffer <T> {
     var buffer: [T] = []
+    let capacity: Int
     var writeIndex: ManagedAtomic<Int>
     var readIndex: ManagedAtomic<Int>
-    var size: ManagedAtomic<Int>
     
-    init(buffer: [T], writeIndex: ManagedAtomic<Int>, readIndex: ManagedAtomic<Int>, size: ManagedAtomic<Int>) {
+    init(buffer: [T], writeIndex: ManagedAtomic<Int>, readIndex: ManagedAtomic<Int>, capacity: Int) {
         self.buffer = buffer
         self.writeIndex = writeIndex
         self.readIndex = readIndex
-        self.size = size
+        self.capacity = capacity
     }
     
     func read() -> T? {
-        let reader = readIndex.load(ordering: .relaxed)
-        let writer = writeIndex.load(ordering: .relaxed)
-        let capacity = size.load(ordering: .relaxed)
+        let reader = readIndex.load(ordering: .acquiring)
+        let writer = writeIndex.load(ordering: .acquiring)
         // if empty
         if reader % capacity == writer {
             return nil
         }
         let data = buffer[reader]
-        readIndex.store((reader + 1) % capacity, ordering: .relaxed)
+        readIndex.store((reader + 1) % capacity, ordering: .releasing)
         return data
     }
     func write(data: T) -> Bool {
-        let reader = readIndex.load(ordering: .relaxed)
-        let writer = writeIndex.load(ordering: .relaxed)
-        let capacity = size.load(ordering: .relaxed)
+        let reader = readIndex.load(ordering: .acquiring)
+        let writer = writeIndex.load(ordering: .acquiring)
         // if full
         if (writer + 1) % capacity == reader {
             return false
         }
         buffer[writer] = data
-        writeIndex.store((writer + 1) % capacity, ordering: .relaxed)
+        writeIndex.store((writer + 1) % capacity, ordering: .releasing)
         return true
     }
 }
