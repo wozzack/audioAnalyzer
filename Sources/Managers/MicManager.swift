@@ -37,7 +37,7 @@ class MicManager: ObservableObject {
     var engine: AVAudioEngine = AVAudioEngine()
     var audioFile: AVAudioFile = AVAudioFile()
     var ringBuffer: RingBuffer<Float>
-    var drainBuffer: AVAudioPCMBuffer
+    var drainBuffer: AVAudioPCMBuffer?
     let outputURL: URL
     
     // managed atomics
@@ -55,7 +55,7 @@ class MicManager: ObservableObject {
             buffer: Array(repeating: 0.0, count: bufferSize),
             writeIndex: ManagedAtomic<Int>(0),
             readIndex: ManagedAtomic<Int>(0),
-            capacity: Int(65536) // good sweet spot
+            capacity: bufferSize // good sweet spot at 65536
         )
         // 2. initialize atomics
         recordingFlag = ManagedAtomic<Bool>(false)
@@ -93,9 +93,10 @@ class MicManager: ObservableObject {
         // 2a. install tap
         let format = engine.inputNode.outputFormat(forBus: 0)
         // frameCapacity = drain interval * sample rate, multiplied by 2 for safety margin since drain interval isnt perfectly consistant
-        drainBuffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 9600) ?? <#default value#>
-        engine.inputNode.installTap(onBus: 0, bufferSize: 1024, format: format) { buffer, time in
-            // do sometyhing
+        drainBuffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: Double(format.sampleRate) * 0.1) ?? AVAudioPCMBuffer()
+        engine.inputNode.installTap(onBus: 0, bufferSize: 1024, format: format) { [weak self] buffer, time in
+            self?.bufferHandler(buffer)
+            
         }
         do {
             audioFile = try AVAudioFile(forWriting: outputURL, settings: format.settings)
@@ -104,7 +105,7 @@ class MicManager: ObservableObject {
         }
         
         // 3. create suspended timer with the associated writer queue
-        var timer = DispatchSource.makeTimerSource(queue: writeQueue)
+        let timer = DispatchSource.makeTimerSource(queue: writeQueue)
         // every 100ms it drains the buffer and writes to file
         timer.schedule(deadline: .now() + 0.1, repeating: 0.1)
         // weak self to prevent retaining cycle
@@ -134,7 +135,8 @@ class MicManager: ObservableObject {
         writeTimer = nil
         // 4. flush remaining data to disk
         writeQueue.sync { self.drainWrite() }
-        // 5. deallocate class file and timer
+        // 5. deallocate class file and timer, remove tap
+        engine.inputNode.removeTap(onBus: 0)
     }
     
     /*
@@ -158,7 +160,9 @@ class MicManager: ObservableObject {
         let dropped = droppedBuffers.load(ordering: .relaxed)
         for i in 0..<pcm.frameLength {
             if !ringBuffer.write(data: pcm.floatChannelData?[0][Int(i)] ?? 0.0) {
-                droppedBuffers.store(dropped + 1, ordering: .relaxed)
+                // droppedBuffers.store(dropped + 1, ordering: .relaxed)
+                // increments by total dropped samples
+                droppedBuffers.wrappingIncrement(ordering: .relaxed)
             }
         }
         // if failure (full or otherwise, need to call write from RingBuffer, droppedBuffers += 1
@@ -176,42 +180,45 @@ class MicManager: ObservableObject {
         
         // read sample from ring buffer (it needs to iterate through the ring
         // set avaudio format, must match that of the avaudiofile
-        guard let format = AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: 44100, channels: 1, interleaved: false)
+        
+        guard let drainBuffer = drainBuffer
         else {
             return
         }
+        
         // pack ring samples into pcm buffers
         // could also just allocate pcm buffer in startRecording... refill in here and set to nil in stopRecording
-        // let pcmBuffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 9600)
-        //pcmBuffer?.frameLength = AVAudioFrameCount()
         // create pointer to iterate
         let channels = drainBuffer.floatChannelData
         let channelCount = drainBuffer.format.channelCount
+        var framesWritten = 0
+
         
-        // ??? samples is a 1d array not 2d... and it doesnt exist outside the loop ;/
-        // i need to edit pcmBuffer via floatChannelData
-        for channel in 0..<channelCount {
-            // channels is a unsafemutablebufferpointer that we can iterate on
-            // samples is the nth value pointer iterating through a single channel
-            let samples = channels?[Int(channel)]
-            
-            // loop until either ringbuffer read returns nil or we filled pcmbuffer capacity
-            for frame in 0..<drainBuffer.frameCapacity {
-                let sample = ringBuffer.read()
-                if sample != nil {
-                    samples?[Int(frame)] = sample ?? 0.0
-                } else {
-                    drainBuffer.frameLength = AVAudioFrameCount(frame)
-                    break
-                }
+        // frameLength = number of valid audio frames stored in the buffer (data quantity)
+        // frameCapacity = total number of audio frames the buffer can theoretically hold
+        // channelCount = the total number of samples per frame (normally)
+        
+        
+        // modify pcmBuffer via floatChannelData
+        outerLoop: for frame in 0..<drainBuffer.frameCapacity {
+            innerLoop: for channel in 0..<channelCount {
+                // channels is a unsafemutablebufferpointer that we can iterate on
+                // samples is the nth value pointer iterating through a single channel
+                let samples = channels?[Int(channel)]
+                // loop until either ringbuffer read returns nil or we filled pcmbuffer capacity
+                guard let sample = ringBuffer.read()
+                else { break outerLoop }
+                samples?[Int(frame)] = sample
             }
-            
+            framesWritten += 1
         }
-        // need to convert samples into an AudioBufferList
+        drainBuffer.frameLength = AVAudioFrameCount(framesWritten)
+        // need to convert samples into an AudioBufferList?
         
         // write to file
         do {
-            audioFile = try AVAudioFile(url: outputURL, fromBuffer: drainBuffer)
+            try audioFile.write(from: drainBuffer)
+            // audioFile = try AVAudioFile(url: outputURL, fromBuffer: drainBuffer)
         } catch {
             let dropped = droppedBuffers.load(ordering: .relaxed)
             print("drainWrite failed: \(error) (droppedBuffers: \(dropped))")
