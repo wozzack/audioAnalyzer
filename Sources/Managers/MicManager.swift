@@ -64,17 +64,6 @@ class MicManager: ObservableObject {
         // initialize queue
         writeQueue = DispatchQueue(label: "disk-writer", qos: .utility)
         // 3. create AVAudioFile for writing
-        /*
-        let settings: [String: Any] = [
-            AVFormatIDKey: kAudioFormatLinearPCM,
-            AVSampleRateKey: 44100.0,
-            AVNumberOfChannelsKey: 1,
-            AVLinearPCMBitDepthKey: 32,
-            AVLinearPCMIsFloatKey: true,
-            AVLinearPCMIsNonInterleaved: true
-        ]
-        audioFile = try AVAudioFile(forWriting: outputURL, settings: settings)
-         */
         
     }
     /*
@@ -82,18 +71,19 @@ class MicManager: ObservableObject {
      Needs: engine, queue, and recordingFlag initialization
      Gives: timer object scheduling and initialization, updates boolean of recordingFlag, starts engine and timer objects
      */
-    func startRecording() throws {
+    func startRecording() async throws {
         
         // should install tap here?, need to request permissions from user
-        
+        await AVCaptureDevice.requestAccess(for: .audio)
         // 1. set recordingFlag, use store cause its atomic
         recordingFlag.store(true, ordering: .releasing)
         // 2. start engine, why though?
-        try? engine.start()
+        
+        try engine.start()
         // 2a. install tap
         let format = engine.inputNode.outputFormat(forBus: 0)
         // frameCapacity = drain interval * sample rate, multiplied by 2 for safety margin since drain interval isnt perfectly consistant
-        drainBuffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: Double(format.sampleRate) * 0.1) ?? AVAudioPCMBuffer()
+        drainBuffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: AVAudioFrameCount(format.sampleRate * 0.1 * 2)) ?? AVAudioPCMBuffer()
         engine.inputNode.installTap(onBus: 0, bufferSize: 1024, format: format) { [weak self] buffer, time in
             self?.bufferHandler(buffer)
             
@@ -128,15 +118,17 @@ class MicManager: ObservableObject {
     func stopRecording() {
         // 1. set recordingFlag
         recordingFlag.store(false, ordering: .relaxed)
-        // 2. stop engine
+        // 2. stop engine and remove tap
+        engine.inputNode.removeTap(onBus: 0)
         engine.stop()
         // 3. stop timer
         writeTimer?.cancel()
         writeTimer = nil
         // 4. flush remaining data to disk
         writeQueue.sync { self.drainWrite() }
-        // 5. deallocate class file and timer, remove tap
-        engine.inputNode.removeTap(onBus: 0)
+        // 5. deallocate class file and timer, remove tap, deallocate drainBuffer
+        drainBuffer = nil
+        
     }
     
     /*
@@ -157,7 +149,7 @@ class MicManager: ObservableObject {
         // compute level, atomic store to ampLevel
         ampLevel.store(computeLevel(buffer: pcm).bitPattern, ordering: .relaxed)
         // write samples from pcm buffer into ring buffer
-        let dropped = droppedBuffers.load(ordering: .relaxed)
+        // let dropped = droppedBuffers.load(ordering: .relaxed)
         for i in 0..<pcm.frameLength {
             if !ringBuffer.write(data: pcm.floatChannelData?[0][Int(i)] ?? 0.0) {
                 // droppedBuffers.store(dropped + 1, ordering: .relaxed)

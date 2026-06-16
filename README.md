@@ -1,7 +1,7 @@
 [Recently Finished]
-- Implementation of low-level buffer memory implementation of spectrogram visual.
-- Improved Canvas loading performance boost through changing logic for re-rendering and re-drawing.
+- Live audio processing with cycled disk-timer and no allocation/lock audio thread.
+- Three part pipeline with lock-free ring buffer acting as intermediatary.
 
 [Planned]
-- Live microphone input processing.
-- Performance hot-fixes for audio scrubbing.
+- Frontend UI made pretty.
+- CanvasManager user-adjustable view states.
