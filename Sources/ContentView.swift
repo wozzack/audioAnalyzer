@@ -3,14 +3,19 @@ import AudioKit
 import SwiftUI
 
 struct ContentView: View {
+
     @StateObject var audioManager = AudioManager()
     @StateObject var waveformView = WaveformView()
     @StateObject var canvasManager = CanvasManager()
-    @StateObject var micManager = MicManager()
-    var displaySize = CGRect(x: 0, y: 0, width: 300, height: 600)
+    @ObservedObject var micManager: MicManager
+    @StateObject var errorReporter = ErrorReporter()
     
+    init(micManager: MicManager) {
+        self.micManager = micManager
+    }
+    
+    var displaySize = CGRect(x: 0, y: 0, width: 300, height: 600)
     @State var song: String = "misato.mp3"
-    @State var errorMessage: String?
     @State var isPlaylistShowing: Bool = false
     @State var progressSlider: Double = 0.0
     @State var amplitudeLevel: Float = 0.0
@@ -31,10 +36,7 @@ struct ContentView: View {
                                 try audioManager.addToPlaylist(audio: audio)
                                 song = ""
                             } catch let error {
-                                // print the error
-                                // errorLogger(error: error)
-                                // print the error description if it conforms to AudioManagerError
-                                print(errorHandler(error))
+                                errorReporter.report(error)
                             }
                         }
                         .foregroundColor(.blue)
@@ -46,7 +48,7 @@ struct ContentView: View {
                             try audioManager.addToPlaylist(audio: audio)
                             song = ""
                         } catch let error {
-                            print(errorHandler(error))
+                            errorReporter.report(error)
                         }
                     }
                     .padding(10)
@@ -69,7 +71,7 @@ struct ContentView: View {
                                     try canvasManager.visualModel?.processAudio(AVFile: audioManager.player.file!)
                                     audioManager.isLoaded = true
                                 } catch let error {
-                                    print(errorHandler(error))
+                                    errorReporter.report(error)
                                 }
                             } label: {
                                 HStack {
@@ -104,7 +106,7 @@ struct ContentView: View {
                                 context.draw(Image(decorative: cgImage, scale: 1), in: displaySize)
                             }
                         } catch let error {
-                            print(errorHandler(error))
+                            errorReporter.report(error)
                         }
                     } else {
                         let placeholderText = Text("\(micManager.ampLevel)")
@@ -129,7 +131,7 @@ struct ContentView: View {
                                 try audioManager.playAudio()
                             }
                         } catch let error {
-                            print(errorHandler(error))
+                            errorReporter.report(error)
                         }
                     }
                     .padding(10)
@@ -148,14 +150,14 @@ struct ContentView: View {
                                     try self.audioManager.manualSeeking(prog: progressSlider)
                                     try audioManager.playAudio()
                                 } catch let error {
-                                    print(errorHandler(error))
+                                    errorReporter.report(error)
                                 }
                             } else {
                                 do {
                                     progressSlider = audioManager.progress
                                     try audioManager.pauseAudio()
                                 } catch let error {
-                                    print(errorHandler(error))
+                                    errorReporter.report(error)
                                 }
                             }
                         }
@@ -172,11 +174,18 @@ struct ContentView: View {
             .frame(width: 400, height: 400)
             .border(Color(.orange))
         }
+        .alert(item: $errorReporter.currentError) { presented in
+            Alert(
+                title: Text("Error"),
+                message: Text(presented.message),
+                dismissButton: .default(Text("OK"))
+            )
+        }
     }
 }
 
 #Preview {
-    ContentView()
+    ContentView(micManager: MicManager(
+        outputURL: URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("preview.caf")))
 }
-
-

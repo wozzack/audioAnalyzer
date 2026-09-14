@@ -21,7 +21,7 @@ func convertToAudioObject(s: String) throws -> AudioObject {
     else {
         throw AudioManagerError.GenericFailure(funcName: "convertToAudioObject", reason: "Invalid string input.")
     }
-        // locate file type and then extract the file name and extension from the string
+    // locate file type and then extract the file name and extension from the string
     let fileExtension = String(s.split(separator: ".")[1])
     let fileName = String(s.split(separator: ".")[0])
     // if confirms to pattern, then start processing the string to extract the file name and extension

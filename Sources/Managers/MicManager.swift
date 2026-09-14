@@ -38,7 +38,7 @@ class MicManager: ObservableObject {
     var audioFile: AVAudioFile = AVAudioFile()
     var ringBuffer: RingBuffer<Float>
     var drainBuffer: AVAudioPCMBuffer?
-    let outputURL: URL
+    var outputURL: URL
     
     // managed atomics
     let recordingFlag: ManagedAtomic<Bool>
@@ -48,7 +48,7 @@ class MicManager: ObservableObject {
     var writeTimer: DispatchSourceTimer?
     var writeQueue: DispatchQueue
     
-    init(outputURL: URL, bufferSize: Int) throws {
+    init(outputURL: URL, bufferSize: Int = 65536) {
         self.outputURL = outputURL
         // 1. allocate ring buffer
         ringBuffer = RingBuffer<Float>(
@@ -72,13 +72,11 @@ class MicManager: ObservableObject {
      Gives: timer object scheduling and initialization, updates boolean of recordingFlag, starts engine and timer objects
      */
     func startRecording() async throws {
-        
         // should install tap here?, need to request permissions from user
         await AVCaptureDevice.requestAccess(for: .audio)
         // 1. set recordingFlag, use store cause its atomic
         recordingFlag.store(true, ordering: .releasing)
         // 2. start engine, why though?
-        
         try engine.start()
         // 2a. install tap
         let format = engine.inputNode.outputFormat(forBus: 0)
@@ -86,7 +84,6 @@ class MicManager: ObservableObject {
         drainBuffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: AVAudioFrameCount(format.sampleRate * 0.1 * 2)) ?? AVAudioPCMBuffer()
         engine.inputNode.installTap(onBus: 0, bufferSize: 1024, format: format) { [weak self] buffer, time in
             self?.bufferHandler(buffer)
-            
         }
         do {
             audioFile = try AVAudioFile(forWriting: outputURL, settings: format.settings)
@@ -128,7 +125,6 @@ class MicManager: ObservableObject {
         writeQueue.sync { self.drainWrite() }
         // 5. deallocate class file and timer, remove tap, deallocate drainBuffer
         drainBuffer = nil
-        
     }
     
     /*
@@ -185,11 +181,9 @@ class MicManager: ObservableObject {
         let channelCount = drainBuffer.format.channelCount
         var framesWritten = 0
 
-        
         // frameLength = number of valid audio frames stored in the buffer (data quantity)
         // frameCapacity = total number of audio frames the buffer can theoretically hold
         // channelCount = the total number of samples per frame (normally)
-        
         
         // modify pcmBuffer via floatChannelData
         outerLoop: for frame in 0..<drainBuffer.frameCapacity {
@@ -230,7 +224,6 @@ class MicManager: ObservableObject {
         }
         return sum / Float(frameCount)
     }
-    
 }
 
 class RingBuffer <T> {
