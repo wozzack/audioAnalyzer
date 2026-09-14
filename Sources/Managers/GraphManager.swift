@@ -92,6 +92,22 @@ class SpectrogramView: VisualGraph, ObservableObject {
     var spectrogramData: [[Float]] = [] // 2D array for time-frequency spectrogram
     var CGImageData: [SpectrogramCell]? = []
     
+    let hannWindow = vDSP.window(ofType: Float.self,
+                                 usingSequence: .hanningDenormalized,
+                                 count: 1024,
+                                 isHalfWindow: false)
+    lazy var dft: vDSP.DiscreteFourierTransform<Float> = {
+        do {
+            return try vDSP.DiscreteFourierTransform(previous: nil,
+                                                     count: 1024,
+                                                     direction: .forward,
+                                                     transformType: .complexComplex,
+                                                     ofType: Float.self)
+        } catch {
+            fatalError("GraphManagerError.GenericFailure(funcName: \"init\", reason: \"failure to properly allocate DFT\"): \(error)")
+        }
+    }()
+
     // need to convert spectrogramData elements into spectrogram cells
     
     // create DFT per-frame inside frameDFT to avoid referencing undefined symbols and to keep type-checking simple
@@ -155,7 +171,8 @@ class SpectrogramView: VisualGraph, ObservableObject {
             //for remaining fraction samples that can be accounted for by adding one more sample
             let totalSamples = Int(buffer.frameLength) / length + (Int(buffer.frameLength) % length == 0 ? 0 : 1)
             let channelCount = Int(buffer.format.channelCount)
-            var samples: [Float] = Array(repeating: (0.0), count: totalSamples)
+            // var samples: [Float] = Array(repeating: (0.0), count: totalSamples)
+            var samples: [Float] = Array()
             for channel in 0..<channelCount {
                 let channelData = Array(UnsafeBufferPointer(
                     start: buffer.floatChannelData?[channel],
@@ -205,22 +222,24 @@ class SpectrogramView: VisualGraph, ObservableObject {
     // takes a buffer and does DFT on it to convert to frequency domain
     func frameDFT(timeFrame: [Float]) throws -> [Float] {
         // apply Hann window
-        let hannWindow = vDSP.window(ofType: Float.self,
+        // TODO: decouple and use class version, standardize frameSize
+        /* let hannWindow = vDSP.window(ofType: Float.self,
                                      usingSequence: .hanningDenormalized,
                                      count: timeFrame.count,
                                      isHalfWindow: false)
+         */
         let windowedData = vDSP.multiply(timeFrame, hannWindow)
 
         // prepare imaginary input
         let imaginary = [Float](repeating: 0, count: timeFrame.count)
 
         // create DFT for this frame size (explicit to help compiler)
-        let dft = try vDSP.DiscreteFourierTransform(previous: nil,
+        /* let dft = try vDSP.DiscreteFourierTransform(previous: nil,
                                                    count: timeFrame.count,
                                                    direction: .forward,
                                                    transformType: .complexComplex,
                                                    ofType: Float.self)
-
+         */
         // perform transform and break into explicit sub-expressions
         let transformed = dft.transform(real: windowedData, imaginary: imaginary)
         let realPart = transformed.0

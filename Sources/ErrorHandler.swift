@@ -4,13 +4,6 @@ import Foundation
 
 import SwiftUI
 
-// MARK: - Shared error contract
-
-/// Every manager error carries the same two pieces of data (which function
-/// failed, and why) plus a human-readable domain name. Conforming to this
-/// protocol gives each error type its `errorDescription`/`failureReason` for
-/// free via the default implementations below, so the boilerplate lives in
-/// exactly one place.
 public protocol ManagerError: LocalizedError {
     var funcName: String { get }
     var reason: String { get }
@@ -28,29 +21,16 @@ extension ManagerError {
     }
 }
 
-// MARK: - Error reporting
 
-/// Produces a user-facing message for any error. `ManagerError` values format
-/// themselves via `LocalizedError`; anything else falls back to the system
-/// description rather than a generic "Unhandled error."
-///
-/// can call as unnamed parameter "errorHandler(error)"
 public func errorHandler(_ error: Error) -> String {
     error.localizedDescription // single expression body
 }
 
-/// An error wrapped for presentation. `Identifiable` so SwiftUI can drive an
-/// alert directly from an optional of this type.
 public struct PresentedError: Identifiable {
     public let id = UUID()
     public let message: String
 }
 
-/// Central sink for errors that should be shown to the user. A view observes
-/// this and presents `currentError` as an alert. `report(_:)` is safe to call
-/// from any thread — it hops to the main actor before mutating state — so
-/// background work (e.g. the disk-writer in `MicManager`) can surface failures
-/// the same way UI-thread code does.
 @MainActor
 public final class ErrorReporter: ObservableObject {
     @Published public var currentError: PresentedError?
@@ -65,7 +45,6 @@ public final class ErrorReporter: ObservableObject {
     }
 }
 
-// MARK: - Per-manager error types
 
 public enum GraphManagerError: ManagerError {
     case GenericFailure(funcName: String, reason: String)

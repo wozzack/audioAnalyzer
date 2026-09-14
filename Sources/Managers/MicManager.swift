@@ -138,7 +138,7 @@ class MicManager: ObservableObject {
         else {
             return
         }
-        guard let samples = pcm.floatChannelData?[0]
+        guard pcm.floatChannelData?[0] != nil
         else {
             return
         }
