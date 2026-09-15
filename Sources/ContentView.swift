@@ -68,7 +68,7 @@ struct ContentView: View {
                                     try audioManager.loadAudio(audio: audioFile)
                                     // loadAudio sets audioManager.player.file to be the current file we need
                                     try canvasManager.changeGraph(newGraph: .spectrogram, file: audioManager.player.file!)
-                                    try canvasManager.visualModel?.processAudio(AVFile: audioManager.player.file!)
+                                    // try canvasManager.visualModel?.processAudio(AVFile: audioManager.player.file!)
                                     audioManager.isLoaded = true
                                 } catch let error {
                                     errorReporter.report(error)
@@ -103,7 +103,10 @@ struct ContentView: View {
                             let cgImage = try canvasManager.visualModel?.drawGraph(rect: displaySize, color: Color(.red), lineWidth: CGFloat(1.0)) // color actually doesnt do anything for spectrogram
                             
                             if let cgImage {
-                                context.draw(Image(decorative: cgImage, scale: 1), in: displaySize)
+                                // draw into the canvas's actual size, not the fixed 300x600
+                                // displaySize, so the whole spectrogram is visible (not clipped)
+                                context.draw(Image(decorative: cgImage, scale: 1),
+                                             in: CGRect(origin: .zero, size: size))
                             }
                         } catch let error {
                             errorReporter.report(error)

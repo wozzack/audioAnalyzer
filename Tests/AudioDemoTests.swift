@@ -193,7 +193,7 @@ class GraphManagerTestSuite {
             // check that they are not nil
             #expect(canvasManager.visualModel?.rawData != nil)
             #expect(canvasManager.visualModel?.dsData != nil)
-            #expect((canvasManager.visualModel?.dsData?.count ?? 0) > 0, "dsData should not be empty" )
+            #expect(((canvasManager.visualModel?.dsData? as AnyObject).count ?? 0) > 0, "dsData should not be empty" )
             
             // check that dsData values are valid, normalized, and in logical ordering
             if let dsData = canvasManager.visualModel?.dsData {
@@ -220,7 +220,7 @@ class GraphManagerTestSuite {
         
         // what do i want to check for in the pathobject?
         
-        let pathObject = try canvasManager.visualModel?.drawGraph(rect: displaySize)
+        let pathObject = try canvasManager.visualModel?.drawGraph(rect: displaySize, color: .blue, lineWidth: 1.0)
         
         #expect(pathObject != nil)
         

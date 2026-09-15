@@ -155,6 +155,9 @@ class SpectrogramView: VisualGraph, ObservableObject {
     
     // processes buffers and stores in dsData
     func processAudio(AVFile: AVAudioFile) throws {
+        // reset accumulators so repeated calls can't stack duplicate frames
+        spectrogramData.removeAll(keepingCapacity: true)
+        CGImageData?.removeAll(keepingCapacity: true)
         // implement spectrogram processing
         if AVFile == AVFile {
             guard let buffer = try AVAudioPCMBuffer(file: AVAudioFile(forReading: AVFile.url)),
@@ -166,23 +169,25 @@ class SpectrogramView: VisualGraph, ObservableObject {
             // difference between floatchanneldata accessed from avfile vs pcm buffer
             self.rawData = [AVFile.floatChannelData() as Any]
             self.AVFile = AVFile
-            let length = Int(self.shapeSize.width)
-            
-            //for remaining fraction samples that can be accounted for by adding one more sample
-            let totalSamples = Int(buffer.frameLength) / length + (Int(buffer.frameLength) % length == 0 ? 0 : 1)
             let channelCount = Int(buffer.format.channelCount)
-            // var samples: [Float] = Array(repeating: (0.0), count: totalSamples)
-            var samples: [Float] = Array()
+            // downmix all channels to a single mono waveform
+            var downmix = [Float](repeating: 0, count: Int(buffer.frameLength))
             for channel in 0..<channelCount {
                 let channelData = Array(UnsafeBufferPointer(
                     start: buffer.floatChannelData?[channel],
                     count: Int(buffer.frameLength)))
-                samples.append(contentsOf: channelData)
+                for i in 0..<Int(buffer.frameLength) {
+                    downmix[i] += channelData[i] / Float(channelCount)
+                }
             }
-            
-            // an array of floats representing magnitude
-            self.dsData = samples
-            try fileDFT(frameSize: 1024, hopSize: 512)
+
+            // an array of floats representing the mono waveform
+            self.dsData = downmix
+            // choose the hop so the number of time columns roughly matches the display width
+            let frameSize = 1024
+            let targetColumns = Int(shapeSize.width)
+            let adjustedHopSize = max(1, downmix.count / targetColumns)
+            try fileDFT(frameSize: frameSize, hopSize: adjustedHopSize)
             // try convertToImageData()
             
                     
@@ -244,22 +249,23 @@ class SpectrogramView: VisualGraph, ObservableObject {
         let transformed = dft.transform(real: windowedData, imaginary: imaginary)
         let realPart = transformed.0
         let imagPart = transformed.1
+        let uniqueCount = timeFrame.count / 2 + 1
         
         // wtf am i doing with my life ******************************************
-        var magnitude = [Float]()
-        magnitude.reserveCapacity(realPart.count)
-        for i in 0..<realPart.count {
+        var magnitudes = [Float]()
+        magnitudes.reserveCapacity((realPart.count / 2) + 1)
+        // conjugate-symmetric dft output real-valued inputs :shrug:
+        for i in 0..<((realPart.count / 2) + 1) {
             let r = realPart[i]
             let im = imagPart[i]
-            magnitude.append(sqrt(r * r + im * im))
+            magnitudes.append(sqrt(r * r + im * im))
         }
-        return magnitude
+        return Array(magnitudes[0..<uniqueCount])
     }
-    // an array of arrays, where the outer dimension are time slices and each inner array is divided into freq bins, and the
-    // value in each bin represents the magnitude/amplitude
+    // an array of arrays, where the outer dimension are time slices and each inner array is divided into freq bins, and the value in each bin represents the magnitude/amplitude
     
     func ODcolorMapping(ampValue: Float, colorIndex: Int) throws -> Color {
-            // so first bin will have value [0.0/31.0], looking like [[0.0/31,0], [1.0/31.0], [2.0/31.0], ...] in its entirety
+        // so first bin will have value [0.0/31.0], looking like [[0.0/31,0], [1.0/31.0], [2.0/31.0], ...] in its entirety
         let colorBins = 32 // design choice
         let normalizedValue = CGFloat(colorIndex) / CGFloat(colorBins - 1)
         let startHue: CGFloat = (240.0/360.0) // blue hsv
@@ -300,7 +306,6 @@ class SpectrogramView: VisualGraph, ObservableObject {
                 }
             }
         }
-        print("reached end of convertToImageData")
     }
     
     @MainActor func ODdrawGraph(rect: CGRect, color: Color, lineWidth: CGFloat) throws -> CGImage {
@@ -321,8 +326,7 @@ class SpectrogramView: VisualGraph, ObservableObject {
         // created once actually called, implies spectrogram data exists at this point due to control flow
         lazy var timeSlices = spectrogramData.count
         lazy var freqBins = spectrogramData[0].count
-        print("reached drawGraph")
-        
+
         let rgbImageFormat = vImage_CGImageFormat(
             bitsPerComponent: 32,
             bitsPerPixel: 32 * 3,
@@ -334,21 +338,27 @@ class SpectrogramView: VisualGraph, ObservableObject {
         
         // convert spectrogramData from an array of [Float] to a contiguous block of memory
         var flatSpectrogramData = [Float](repeating: 0, count: timeSlices * freqBins)
+        // the color LUT expects input in 0...1, but raw magnitudes span 0...~130,
+        // so normalize with a dB (log) curve: peak -> 1.0, floorDB and below -> 0.0
+        let maxMag = spectrogramData.flatMap { $0 }.max() ?? 1
+        let floorDB: Float = -80
         for timeSlice in 0..<timeSlices {
             for freqBin in 0..<freqBins {
-                // row-major: row = f, col = t
-                let flatIndex = freqBin * timeSlices + timeSlice // timeSlice * freqBins + freqBin if we had timeSlice as height instead of width?
-                flatSpectrogramData[flatIndex] = self.spectrogramData[timeSlice][freqBin]
+                // row-major: row = f, col = t (freq flipped so low freq sits at the bottom)
+                let flatIndex = (freqBins - 1 - freqBin) * timeSlices + timeSlice
+                let mag = self.spectrogramData[timeSlice][freqBin]
+                let db = 20 * log10(max(mag, 1e-9) / maxMag)      // 0 dB at peak, negative below
+                let norm = max(0, min(1, (db - floorDB) / (-floorDB))) // floorDB..0 -> 0..1
+                flatSpectrogramData[flatIndex] = norm
             }
         }
-        
+
         // creates a pixelbuffer representing an image for each RGB channel, and then creating the final buffer when interleaved
         let redBuffer = vImage.PixelBuffer<vImage.PlanarF>(width: timeSlices, height: freqBins)
         let greenBuffer = vImage.PixelBuffer<vImage.PlanarF>(width: timeSlices, height: freqBins)
         let blueBuffer = vImage.PixelBuffer<vImage.PlanarF>(width: timeSlices, height: freqBins)
         let rgbBuffer = vImage.PixelBuffer<vImage.InterleavedFx3>(width: timeSlices, height: freqBins)
-        
-        print("allocated buffers")
+
         // converts spectrogramData from an array to an unsafeMutableBufferPointer (has count, type, memory address, and built in bounds checking
         let _: () = flatSpectrogramData.withUnsafeMutableBufferPointer { unsafeBufferPointer in
             let imageBuffer = vImage.PixelBuffer(
@@ -362,16 +372,12 @@ class SpectrogramView: VisualGraph, ObservableObject {
                 sources: [imageBuffer],
                 destinations: [redBuffer, greenBuffer, blueBuffer],
                 interpolation: .half)
-            print("applied lookup table")
-            
+
             rgbBuffer.interleave(planarSourceBuffers: [redBuffer, greenBuffer, blueBuffer])
-            print("finished interleaving buffers")
         }
-        print("about to make CGImage")
         guard let cgImage = rgbBuffer.makeCGImage(cgImageFormat: rgbImageFormat) else {
             throw GraphManagerError.GenericFailure(funcName: "drawGraph2", reason: "failed to create CGImage from rgbBuffer")
         }
-        print("finished drawGraph")
         return cgImage // ?? SpectrogramView.emptyCGImage
      }
     
