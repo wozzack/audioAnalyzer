@@ -21,6 +21,19 @@ protocol VisualGraph: ObservableObject, AnyObject {
     @MainActor func drawGraph(rect: CGRect, color: Color, lineWidth: CGFloat) throws -> CGImage
 }
 
+enum FrequencyScale {
+    case log
+    case mel
+    case linear
+}
+
+struct FrequencyMap {
+    let lo: [Int]
+    let hi: [Int]
+    let frac: [Float]
+    let outputBins: Int
+}
+
 class WaveformView: VisualGraph, ObservableObject {
     // just two dimensional data, amplitude and time, need to handle downsampling
     typealias DSType = [(Float, Float)]
@@ -87,11 +100,13 @@ class SpectrogramView: VisualGraph, ObservableObject {
     var dsData: DSType? = []
     var shapeSize = CGRect(x: 0, y: 0, width: 300, height: 600)
     var AVFile: AVAudioFile?
+    var sampleRate: Double?
     var graphType: GraphType = .spectrogram
+    var frequencyScale: FrequencyScale = .linear
+    var outputBins: Int = 600
     // freq and amp. [amp1, amp2, amp3, ...], timeSlice[freqBin]
     var spectrogramData: [[Float]] = [] // 2D array for time-frequency spectrogram
     var CGImageData: [SpectrogramCell]? = []
-    
     let hannWindow = vDSP.window(ofType: Float.self,
                                  usingSequence: .hanningDenormalized,
                                  count: 1024,
@@ -169,6 +184,7 @@ class SpectrogramView: VisualGraph, ObservableObject {
             // difference between floatchanneldata accessed from avfile vs pcm buffer
             self.rawData = [AVFile.floatChannelData() as Any]
             self.AVFile = AVFile
+            self.sampleRate = buffer.format.sampleRate
             let channelCount = Int(buffer.format.channelCount)
             // downmix all channels to a single mono waveform
             var downmix = [Float](repeating: 0, count: Int(buffer.frameLength))
@@ -263,6 +279,55 @@ class SpectrogramView: VisualGraph, ObservableObject {
         return Array(magnitudes[0..<uniqueCount])
     }
     // an array of arrays, where the outer dimension are time slices and each inner array is divided into freq bins, and the value in each bin represents the magnitude/amplitude
+    
+    // o'shaughnessy 1987
+    func hzToMel(f: Float) -> Float {
+        2595 * log10(1 + f / 700)
+    }
+    
+    func melToHz(_ m: Float) -> Float {
+        700 * (pow(10, m / 2595) - 1)
+    }
+    
+    // frequency bins depending on enum FrequencyScale, output is the frequency that the input row represents
+    func targetFrequency(row: Int, totalRows: Int, scale: FrequencyScale, maxFrequency: Float, minFrequency: Float) -> Float {
+        let normalizedPosition = Float(row) / Float(totalRows - 1) // scale of 0.0 to 1.0
+        switch scale {
+        case .linear:
+            return minFrequency + (maxFrequency - minFrequency) * normalizedPosition
+        case .log:
+            return minFrequency * pow(maxFrequency / minFrequency, normalizedPosition)
+        case .mel:
+            let m = hzToMel(f: minFrequency) + (hzToMel(f: maxFrequency) - hzToMel(f: minFrequency)) * normalizedPosition
+            return melToHz(m)
+        }
+    }
+    
+    func frequencyMapping(scale: FrequencyScale, sampleRate: Double, frameSize: Int, outputRows: Int, minFrequency: Float, maxFrequency: Float) -> FrequencyMap {
+        let numBins = (outputRows / 2) + 1 // conjugate-symmetry, only half are unique values
+        var lo = [Int](repeating: 0, count: outputBins)
+        var hi = [Int](repeating: 0, count: outputBins)
+        var frac = [Float](repeating: 0, count: outputBins)
+        for i in 0..<outputRows {
+            let freq = targetFrequency(row: i, totalRows: outputRows, scale: scale, maxFrequency: maxFrequency, minFrequency: minFrequency)
+            let x = min(max(freq * Float(frameSize) / Float(sampleRate), 0), Float(numBins - 1))
+            let l = Int(x.rounded(.down))
+            lo[i] = l
+            hi[i] = min(Int(l) + 1, numBins - 1)
+            frac[i] = x - Float(l)
+        }
+        return FrequencyMap(lo: lo, hi: hi, frac: frac, outputBins: outputRows)
+    }
+    
+    func sliceWarp(spectrum: [Float], map: FrequencyMap) -> [Float] {
+        var output = [Float](repeating: 0, count: map.outputBins)
+        for i in 0..<map.outputBins {
+            let a = spectrum[map.lo[i]]
+            let b = spectrum[map.hi[i]]
+            output[i] = a * (1 - map.frac[i]) + b * map.frac[i]
+        }
+        return output
+    }
     
     func ODcolorMapping(ampValue: Float, colorIndex: Int) throws -> Color {
         // so first bin will have value [0.0/31.0], looking like [[0.0/31,0], [1.0/31.0], [2.0/31.0], ...] in its entirety

@@ -26,6 +26,8 @@ enum GraphType {
     case spectrogram
 }
 
+
+
 class CanvasManager: ObservableObject {
     // handles graph loading/changing and graph view modification
 
