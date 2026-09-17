@@ -102,10 +102,12 @@ class SpectrogramView: VisualGraph, ObservableObject {
     var AVFile: AVAudioFile?
     var sampleRate: Double?
     var graphType: GraphType = .spectrogram
-    var frequencyScale: FrequencyScale = .linear
+    var frequencyScale: FrequencyScale = .mel
+    var frequencyMap: FrequencyMap?
     var outputBins: Int = 600
     // freq and amp. [amp1, amp2, amp3, ...], timeSlice[freqBin]
     var spectrogramData: [[Float]] = [] // 2D array for time-frequency spectrogram
+    var warpedData: [[Float]] = []
     var CGImageData: [SpectrogramCell]? = []
     let hannWindow = vDSP.window(ofType: Float.self,
                                  usingSequence: .hanningDenormalized,
@@ -185,6 +187,10 @@ class SpectrogramView: VisualGraph, ObservableObject {
             self.rawData = [AVFile.floatChannelData() as Any]
             self.AVFile = AVFile
             self.sampleRate = buffer.format.sampleRate
+            self.frequencyMap = frequencyMapping(scale: frequencyScale, sampleRate: buffer.format.sampleRate, frameSize: 1024, outputRows: Int(shapeSize.height), minFrequency: 40, maxFrequency: Float(buffer.format.sampleRate / 2))
+            guard let frequencyMap = self.frequencyMap
+            else {
+                throw GraphManagerError.GenericFailure(funcName: "processAudio", reason: "Frequency map failed to build.")}
             let channelCount = Int(buffer.format.channelCount)
             // downmix all channels to a single mono waveform
             var downmix = [Float](repeating: 0, count: Int(buffer.frameLength))
@@ -204,6 +210,8 @@ class SpectrogramView: VisualGraph, ObservableObject {
             let targetColumns = Int(shapeSize.width)
             let adjustedHopSize = max(1, downmix.count / targetColumns)
             try fileDFT(frameSize: frameSize, hopSize: adjustedHopSize)
+            // warp AFTER fileDFT has populated spectrogramData
+            self.warpedData = spectrogramData.map { sliceWarp(spectrum: $0, map: frequencyMap) }
             // try convertToImageData()
             
                     
@@ -389,8 +397,8 @@ class SpectrogramView: VisualGraph, ObservableObject {
     
     func drawGraph(rect: CGRect, color: Color, lineWidth: CGFloat) throws -> CGImage {
         // created once actually called, implies spectrogram data exists at this point due to control flow
-        lazy var timeSlices = spectrogramData.count
-        lazy var freqBins = spectrogramData[0].count
+        lazy var timeSlices = warpedData.count
+        lazy var freqBins = warpedData[0].count
 
         let rgbImageFormat = vImage_CGImageFormat(
             bitsPerComponent: 32,
@@ -405,13 +413,13 @@ class SpectrogramView: VisualGraph, ObservableObject {
         var flatSpectrogramData = [Float](repeating: 0, count: timeSlices * freqBins)
         // the color LUT expects input in 0...1, but raw magnitudes span 0...~130,
         // so normalize with a dB (log) curve: peak -> 1.0, floorDB and below -> 0.0
-        let maxMag = spectrogramData.flatMap { $0 }.max() ?? 1
+        let maxMag = warpedData.flatMap { $0 }.max() ?? 1
         let floorDB: Float = -80
         for timeSlice in 0..<timeSlices {
             for freqBin in 0..<freqBins {
                 // row-major: row = f, col = t (freq flipped so low freq sits at the bottom)
                 let flatIndex = (freqBins - 1 - freqBin) * timeSlices + timeSlice
-                let mag = self.spectrogramData[timeSlice][freqBin]
+                let mag = self.warpedData[timeSlice][freqBin]
                 let db = 20 * log10(max(mag, 1e-9) / maxMag)      // 0 dB at peak, negative below
                 let norm = max(0, min(1, (db - floorDB) / (-floorDB))) // floorDB..0 -> 0..1
                 flatSpectrogramData[flatIndex] = norm
