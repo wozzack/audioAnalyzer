@@ -166,11 +166,13 @@ class GraphManagerTestSuite {
             try canvasManager.visualModel?.processAudio(AVFile: testAudioObject.file)
             // check that they are not nil
             #expect(canvasManager.visualModel?.rawData != nil)
-            #expect(canvasManager.visualModel?.dsData != nil)
-            #expect((canvasManager.visualModel?.dsData?.count ?? 0) > 0, "dsData should not be empty" )
-            
+            // dsData is type-erased through `any VisualGraph`, so cast to the concrete type
+            let dsData = (canvasManager.visualModel as? WaveformView)?.dsData
+            #expect(dsData != nil)
+            #expect((dsData?.count ?? 0) > 0, "dsData should not be empty" )
+
             // check that dsData values are valid, normalized, and in logical ordering
-            if let dsData = canvasManager.visualModel?.dsData {
+            if let dsData {
                 for (min, max) in dsData {
                     #expect(min <= max, "min values range exceeds that of max values range")
                     #expect(min >= -1.0 && max <= 1.0, "min and max values are not normalized between -1.0 and 1.0")
@@ -192,11 +194,12 @@ class GraphManagerTestSuite {
             try canvasManager.changeGraph(newGraph: .waveform, file: testAudioObject2.file)
             // check that they are not nil
             #expect(canvasManager.visualModel?.rawData != nil)
-            #expect(canvasManager.visualModel?.dsData != nil)
-            #expect(((canvasManager.visualModel?.dsData? as AnyObject).count ?? 0) > 0, "dsData should not be empty" )
-            
+            let dsData = (canvasManager.visualModel as? WaveformView)?.dsData
+            #expect(dsData != nil)
+            #expect((dsData?.count ?? 0) > 0, "dsData should not be empty" )
+
             // check that dsData values are valid, normalized, and in logical ordering
-            if let dsData = canvasManager.visualModel?.dsData {
+            if let dsData {
                 for (min, max) in dsData {
                     #expect(min <= max, "min values range exceeds that of max values range")
                     #expect(min >= -1.0 && max <= 1.0, "min and max values are not normalized between -1.0 and 1.0")
@@ -207,7 +210,7 @@ class GraphManagerTestSuite {
         }
     }
     
-    @Test func waveformDrawing() throws {
+    @MainActor @Test func waveformDrawing() throws {
         let audioManager = AudioManager()
         let canvasManager = CanvasManager()
         let testAudioObject = try convertToAudioObject(s: "misato.mp3")
@@ -216,14 +219,51 @@ class GraphManagerTestSuite {
         try canvasManager.changeGraph(newGraph: .waveform, file: testAudioObject.file)
         try canvasManager.visualModel?.processAudio(AVFile: testAudioObject.file)
         let displaySize = CGRect(x: 0, y: 0, width: 300, height: 600)
-        let displaySize2 = CGRect(x: 0, y: 0, width: 600, height: 300)
         
         // what do i want to check for in the pathobject?
         
         let pathObject = try canvasManager.visualModel?.drawGraph(rect: displaySize, color: .blue, lineWidth: 1.0)
-        
+
         #expect(pathObject != nil)
-        
+
+    }
+
+    // A 440 Hz sine, run through one column of the live spectrogram path
+    // (frequencyMapping -> frameDFT -> sliceWarp), should peak on the mel row
+    // that maps back to ~440 Hz. This mirrors what makeColumn will do per frame.
+    @Test func liveColumnSineMapping() throws {
+        let sampleRate = 44100.0
+        let frameSize = 1024
+        let testFreq = 440.0
+
+        let sv = SpectrogramView()
+        // match the internal array sizing (frequencyMapping sizes its arrays with outputBins)
+        let outputRows = sv.outputBins
+
+        // one frame of a pure 440 Hz sine
+        let frame: [Float] = (0..<frameSize).map { i in
+            Float(sin(2 * Double.pi * testFreq * Double(i) / sampleRate))
+        }
+
+        // build the mel map and produce one warped column
+        let map = sv.frequencyMapping(scale: .mel, sampleRate: sampleRate, frameSize: frameSize,
+                                      outputRows: outputRows, minFrequency: 40,
+                                      maxFrequency: Float(sampleRate / 2))
+        let linear = try sv.frameDFT(timeFrame: frame)          // 513 linear magnitudes
+        let column = sv.sliceWarp(spectrum: linear, map: map)   // outputRows warped values
+
+        #expect(column.count == outputRows, "warped column should have one value per output row")
+
+        // brightest row -> convert back to Hz and check it lands near 440
+        guard let peakRow = column.indices.max(by: { column[$0] < column[$1] }) else {
+            throw GraphManagerError.GenericFailure(funcName: "liveColumnSineMapping", reason: "empty warped column")
+        }
+        let peakFreq = sv.targetFrequency(row: peakRow, totalRows: outputRows, scale: .mel,
+                                          maxFrequency: Float(sampleRate / 2), minFrequency: 40)
+
+        // FFT bin resolution is 44100/1024 ≈ 43 Hz, so allow ~one bin of slack
+        #expect(abs(peakFreq - Float(testFreq)) < 60,
+                "expected peak near \(testFreq) Hz, got \(peakFreq) Hz at row \(peakRow)")
     }
 }
 

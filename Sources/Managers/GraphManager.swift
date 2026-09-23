@@ -27,13 +27,6 @@ enum FrequencyScale {
     case linear
 }
 
-struct FrequencyMap {
-    let lo: [Int]
-    let hi: [Int]
-    let frac: [Float]
-    let outputBins: Int
-}
-
 class WaveformView: VisualGraph, ObservableObject {
     // just two dimensional data, amplitude and time, need to handle downsampling
     typealias DSType = [(Float, Float)]
@@ -96,19 +89,23 @@ class WaveformView: VisualGraph, ObservableObject {
 class SpectrogramView: VisualGraph, ObservableObject {
     // time, frequency, color (amplitude)
     typealias DSType = [Float]
+    var graphType: GraphType = .spectrogram
     var rawData: [Any]? = []
     var dsData: DSType? = []
     var shapeSize = CGRect(x: 0, y: 0, width: 300, height: 600)
+    
     var AVFile: AVAudioFile?
-    var sampleRate: Double?
-    var graphType: GraphType = .spectrogram
+    var sampleRate: Double? // initialized by configure()
     var frequencyScale: FrequencyScale = .mel
-    var frequencyMap: FrequencyMap?
+    var frequencyMap: FrequencyMap? // initialized by configure()
     var outputBins: Int = 600
+    var rollingWidth: Int = 300 // shapeSize.size.width
+    
     // freq and amp. [amp1, amp2, amp3, ...], timeSlice[freqBin]
     var spectrogramData: [[Float]] = [] // 2D array for time-frequency spectrogram
-    var warpedData: [[Float]] = []
+    var warpedData: [[Float]] = [] // spectrogramData but fitted to outputBins rows
     var CGImageData: [SpectrogramCell]? = []
+    
     let hannWindow = vDSP.window(ofType: Float.self,
                                  usingSequence: .hanningDenormalized,
                                  count: 1024,
@@ -137,6 +134,13 @@ class SpectrogramView: VisualGraph, ObservableObject {
         let height: CGFloat
     }
     
+    struct FrequencyMap {
+        let lo: [Int]
+        let hi: [Int]
+        let frac: [Float]
+        let outputBins: Int
+    }
+    
     
     struct SpectrogramCanvas: View {
         let CGImageData: [SpectrogramCell]
@@ -158,7 +162,35 @@ class SpectrogramView: VisualGraph, ObservableObject {
             }
         }
     }
+    
+    /*
+    createColumn: creates a time frame that is sourced from frameDFT and transformed into warped column via created frequency map and slice warping, heavy and runs on background queue
+     needs: timeFrame, sampleRate and frequencyMap initialization via configure()
+     gives: warped column scaled by frequency map
+     */
+    
+    func createColumn(from frame: [Float]) throws -> [Float] {
+        let liveFrame = try frameDFT(timeFrame: frame)
+        guard let map = frequencyMap
+        else {
+            throw GraphManagerError.GenericFailure(funcName: "createColumn", reason: "failed frequency map guard.")
+        }
+        return sliceWarp(spectrum: liveFrame, map: map)
+    }
+    
+    /* appendColumn: cheap and lightweight, read by drawGraph on main thread
+    needs:
+    gives:
      
+     */
+    @MainActor func appendColumn(column: [Float]) {
+        warpedData.append(column)
+        if warpedData.count > rollingWidth {
+            warpedData.removeFirst(warpedData.count - rollingWidth)
+        }
+        // re-renders any view watching this ObservableObject, since it isn't a @Published so wont update automactically
+        objectWillChange.send()
+    }
     
     // returns RGB values for blue > red > green for a given intensity value
     
@@ -219,6 +251,7 @@ class SpectrogramView: VisualGraph, ObservableObject {
             throw GraphManagerError.GenericFailure(funcName: "processAudio", reason: "AVFile passed to processAudio does not match the AVFile stored in the WaveformView instance")
         }
     }
+
     // takes dsData as input and outputs frequency-domain converted dsData, calls on bufferDFT multiple times. need to append results of bufferDFT() to the frequency-domain value address
     func fileDFT(frameSize: Int, hopSize: Int) throws {
         guard let dsData = self.dsData
@@ -312,7 +345,7 @@ class SpectrogramView: VisualGraph, ObservableObject {
     }
     
     func frequencyMapping(scale: FrequencyScale, sampleRate: Double, frameSize: Int, outputRows: Int, minFrequency: Float, maxFrequency: Float) -> FrequencyMap {
-        let numBins = (outputRows / 2) + 1 // conjugate-symmetry, only half are unique values
+        let numBins = (frameSize / 2) + 1 // conjugate-symmetry, only half are unique values
         var lo = [Int](repeating: 0, count: outputBins)
         var hi = [Int](repeating: 0, count: outputBins)
         var frac = [Float](repeating: 0, count: outputBins)
@@ -510,3 +543,13 @@ class SpectrogramView: VisualGraph, ObservableObject {
     }()
 }
 
+extension SpectrogramView: StreamingConsumer {
+    func configure(sampleRate: Double) {
+        self.sampleRate = sampleRate
+        self.frequencyMap = frequencyMapping(scale: frequencyScale, sampleRate: 44100, frameSize: 1024, outputRows: outputBins, minFrequency: 40, maxFrequency: Float(sampleRate) / 2) }
+    func consume(frame: [Float]) {
+        guard let column = try? createColumn(from: frame)
+        else { return }
+        Task { @MainActor in self.appendColumn(column: column)}
+    }
+}

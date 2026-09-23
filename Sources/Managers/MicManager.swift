@@ -1,11 +1,3 @@
-//
-//  MicManager.swift
-//  AudioDemo
-//
-//  Created by Kevin Truong on 4/2/26.
-//
-
-
 import AVFoundation
 import CoreAudio
 import AVFAudio
@@ -37,6 +29,7 @@ class MicManager: ObservableObject {
     var engine: AVAudioEngine = AVAudioEngine()
     var audioFile: AVAudioFile = AVAudioFile()
     var ringBuffer: RingBuffer<Float>
+    var visualBuffer: RingBuffer<Float>
     var drainBuffer: AVAudioPCMBuffer?
     var outputURL: URL
     
@@ -57,6 +50,13 @@ class MicManager: ObservableObject {
             readIndex: ManagedAtomic<Int>(0),
             capacity: bufferSize // good sweet spot at 65536
         )
+        
+        visualBuffer = RingBuffer<Float>(
+            buffer: Array(repeating: 0.0, count: bufferSize),
+            writeIndex: ManagedAtomic<Int>(0),
+            readIndex: ManagedAtomic<Int>(0),
+            capacity: bufferSize // good sweet spot at 65536
+        )
         // 2. initialize atomics
         recordingFlag = ManagedAtomic<Bool>(false)
         ampLevel = ManagedAtomic<UInt32>(Float(0.0).bitPattern)
@@ -68,8 +68,8 @@ class MicManager: ObservableObject {
     }
     /*
     startRecording: controls recordingFlag variable, starts the engine and creates timer here since cancelling is forever and it is more functionally clear to do it here vs in the initializer. sets the schedule for the timer, and creates event handler that calls the drainWrite method every interval, then starts the timer cycle.
-     Needs: engine, queue, and recordingFlag initialization
-     Gives: timer object scheduling and initialization, updates boolean of recordingFlag, starts engine and timer objects
+     needs: engine, queue, and recordingFlag initialization
+     gives: timer object scheduling and initialization, updates boolean of recordingFlag, starts engine and timer objects
      */
     func startRecording() async throws {
         // should install tap here?, need to request permissions from user
@@ -147,20 +147,25 @@ class MicManager: ObservableObject {
         // write samples from pcm buffer into ring buffer
         // let dropped = droppedBuffers.load(ordering: .relaxed)
         for i in 0..<pcm.frameLength {
-            if !ringBuffer.write(data: pcm.floatChannelData?[0][Int(i)] ?? 0.0) {
+            let sample = pcm.floatChannelData?[0][Int(i)] ?? 0.0
+            if !ringBuffer.write(data: sample) {
                 // droppedBuffers.store(dropped + 1, ordering: .relaxed)
                 // increments by total dropped samples
                 droppedBuffers.wrappingIncrement(ordering: .relaxed)
             }
+            // fan out the same sample to the visualization buffer (separate reader
+            // from the disk writer); dropping on full is fine for display
+            _ = visualBuffer.write(data: sample)
         }
+        
         // if failure (full or otherwise, need to call write from RingBuffer, droppedBuffers += 1
         // update ring write index
         // no allocation, no locks, no capes
     }
     /*
     drainWrite: when called by the disk timer periodically, it calls the read method from ringBuffer, then proceeds to prepare a pcm buffer to write to file. first we initialize the buffer with proper format, then create a pointer to the empty pcm buffers channels, then create a pointer to each nth value inside a single channel, and call on the ringBuffer read() method for 1024 values, ringBuffer.read will automactically increment one by one. then we create a new file with the data from the pcm buffer
-     Needs: buffer inside ring buffer and droppedBuffers initialized
-     Gives: avaudiofile using the created avaudioformat and avaudiopcmbuffer
+     needs: buffer inside ring buffer and droppedBuffers initialized
+     gives: avaudiofile using the created avaudioformat and avaudiopcmbuffer
      */
     
     func drainWrite() {
