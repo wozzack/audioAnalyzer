@@ -35,7 +35,28 @@ class CanvasManager: ObservableObject {
     //@Published var visualModel = WaveformView()
     @Published var graphColor: Color = .blue
     @Published var graphShowing: Bool = false
-    
+    @Published var isLive: Bool = false
+
+    // owns the live streaming engine while live mode is active
+    private var streaming: StreamingManager?
+
+    func startLive(mic: MicManager, sampleRate: Double) {
+        clearGraph()
+        let engine = StreamingManager(source: mic)
+        streaming = engine
+        visualModel = engine.renderer
+        engine.start(sampleRate: sampleRate, consumer: engine.renderer)
+        graphShowing = true
+        isLive = true
+    }
+
+    func stopLive() {
+        streaming?.stop()
+        streaming = nil
+        isLive = false
+        clearGraph()
+    }
+
     // could change graph type or the audio file itself
     func changeGraph(newGraph: GraphType, file: AVAudioFile) throws {
         clearGraph()

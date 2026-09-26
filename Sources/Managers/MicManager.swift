@@ -72,25 +72,54 @@ class MicManager: ObservableObject {
      gives: timer object scheduling and initialization, updates boolean of recordingFlag, starts engine and timer objects
      */
     func startRecording() async throws {
-        // should install tap here?, need to request permissions from user
-        await AVCaptureDevice.requestAccess(for: .audio)
+        // request mic permission; bail out if the user denies it (otherwise the
+        // engine would crash trying to open an input it isn't allowed to use)
+        let granted = await AVCaptureDevice.requestAccess(for: .audio)
+        guard granted else {
+            throw AudioManagerError.GenericFailure(funcName: "startRecording", reason: "microphone access was denied")
+        }
+        // 0. reject a re-entrant start. installTap asserts `nullptr == Tap()`, so
+        // installing a second tap on an already-recording engine hard-crashes.
+        guard !recordingFlag.load(ordering: .acquiring) else {
+            throw AudioManagerError.GenericFailure(funcName: "startRecording", reason: "already recording")
+        }
         // 1. set recordingFlag, use store cause its atomic
         recordingFlag.store(true, ordering: .releasing)
-        // 2. start engine, why though?
-        try engine.start()
-        // 2a. install tap
-        let format = engine.inputNode.outputFormat(forBus: 0)
+        // drop any samples left in the rings from a previous session so the stream
+        // starts empty rather than replaying stale audio
+        ringBuffer.reset()
+        visualBuffer.reset()
+        // 2. realize the input node and install the tap BEFORE starting the engine.
+        // start() asserts (inputNode != nullptr) if no I/O node has been realized yet.
+        let input = engine.inputNode
+        let format = input.outputFormat(forBus: 0)
         // frameCapacity = drain interval * sample rate, multiplied by 2 for safety margin since drain interval isnt perfectly consistant
         drainBuffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: AVAudioFrameCount(format.sampleRate * 0.1 * 2)) ?? AVAudioPCMBuffer()
-        engine.inputNode.installTap(onBus: 0, bufferSize: 1024, format: format) { [weak self] buffer, time in
+        // defensively clear any tap left over from a prior session that didn't stop
+        // cleanly; installTap asserts if a tap already exists on this bus.
+        input.removeTap(onBus: 0)
+        input.installTap(onBus: 0, bufferSize: 1024, format: format) { [weak self] buffer, time in
             self?.bufferHandler(buffer)
         }
         do {
             audioFile = try AVAudioFile(forWriting: outputURL, settings: format.settings)
         } catch {
+            // undo the partial start so a later attempt isn't blocked by the flag
+            // and doesn't leak the tap we just installed
+            input.removeTap(onBus: 0)
+            recordingFlag.store(false, ordering: .releasing)
             throw AudioManagerError.GenericFailure(funcName: "startRecording", reason: "failed to create avaudiofile")
         }
-        
+        // 3. now that the input node exists and has a tap, start the engine
+        engine.prepare()
+        do {
+            try engine.start()
+        } catch {
+            input.removeTap(onBus: 0)
+            recordingFlag.store(false, ordering: .releasing)
+            throw error
+        }
+
         // 3. create suspended timer with the associated writer queue
         let timer = DispatchSource.makeTimerSource(queue: writeQueue)
         // every 100ms it drains the buffer and writes to file
@@ -108,8 +137,8 @@ class MicManager: ObservableObject {
     
     /*
     stopRecording: controls recordingFlag variable, stops the engine and deallocates timer object. schedules the flush drainWrite to the writeQueue via sync, if we did async it could return function before it actually fully executed the drainWrite method
-     Needs: engine, timer, queue, and recordingFlag initialization
-     Gives: updates boolean of recordingFlag, stops engine and deallocates timer object
+     needs: engine, timer, queue, and recordingFlag initialization
+     gives: updates boolean of recordingFlag, stops engine and deallocates timer object
      */
     
     func stopRecording() {
@@ -129,8 +158,8 @@ class MicManager: ObservableObject {
     
     /*
      bufferHandler: takes in an PCMBuffer from the tap and writes it into the ring buffer. calls computeLevel and stores that in ampLevel. iterates through the ring buffer float array and performs write operation on the nth value in the ring buffer float array, setting it equal to the nth value in the given pcm buffer.
-     Needs: valid pcm buffer (does exist, with greater than zero frame lengths, and existing samples in the first channel array
-     Gives: updates to dropped buffer count if failure, edits ring buffer, and stores computed level
+     needs: valid pcm buffer (does exist, with greater than zero frame lengths, and existing samples in the first channel array
+     gives: updates to dropped buffer count if failure, edits ring buffer, and stores computed level
      */
     func bufferHandler(_ pcm: AVAudioPCMBuffer) {
         // called from tap callback (audio thread)
@@ -232,18 +261,35 @@ class MicManager: ObservableObject {
 }
 
 class RingBuffer <T> {
-    var buffer: [T] = []
+    // used to be a swift array, which had issues because it has shared memory with the storage buffer and reference count (copy-on-write COW), which violates racing conditions. now is a continugous block of raw memory via unsafemutablepointer with count, type, and memory address
+    private let buffer: UnsafeMutablePointer<T>
     let capacity: Int
     var writeIndex: ManagedAtomic<Int>
     var readIndex: ManagedAtomic<Int>
-    
+
     init(buffer: [T], writeIndex: ManagedAtomic<Int>, readIndex: ManagedAtomic<Int>, capacity: Int) {
-        self.buffer = buffer
+        precondition(buffer.count == capacity, "seed array must be exactly `capacity` elements")
         self.writeIndex = writeIndex
         self.readIndex = readIndex
         self.capacity = capacity
+        // copy the seed array into the raw backing store so every slot is initialized
+        self.buffer = UnsafeMutablePointer<T>.allocate(capacity: capacity)
+        buffer.withUnsafeBufferPointer { src in
+            self.buffer.initialize(from: src.baseAddress!, count: capacity)
+        }
     }
-    
+
+    deinit {
+        buffer.deinitialize(count: capacity)
+        buffer.deallocate()
+    }
+
+    // rewind to empty. only safe to call when no producer/consumer is running
+    func reset() {
+        readIndex.store(0, ordering: .relaxed)
+        writeIndex.store(0, ordering: .relaxed)
+    }
+
     func read() -> T? {
         let reader = readIndex.load(ordering: .acquiring)
         let writer = writeIndex.load(ordering: .acquiring)

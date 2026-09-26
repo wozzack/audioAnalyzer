@@ -24,7 +24,6 @@ struct ContentView: View {
         HStack {
             VStack {
                 HStack {
-                    // Input Field
                     TextField("Enter song name: ", text: $song)
                         .multilineTextAlignment(.center)
                         .padding(10)
@@ -41,7 +40,6 @@ struct ContentView: View {
                         }
                         .foregroundColor(.blue)
                     
-                    // Add Song Button
                     Button("Add Song") {
                         do {
                             let audio = try convertToAudioObject(s: song)
@@ -54,12 +52,10 @@ struct ContentView: View {
                     .padding(10)
                 }
                 
-                // Playlist Title
                 Text("Playlist")
                     .frame(width: 175, height: 25)
                     .border(Color(.red))
                 
-                // Playlist View
                 ScrollView {
                     VStack {
                         ForEach(audioManager.playlist, id: \.self) { audioFile in
@@ -85,7 +81,6 @@ struct ContentView: View {
                 .frame(width: 175, height: 250)
                 .border(Color(.red))
                 
-                // Clear Playlist Button
                 Button("Clear playlist.") {
                     audioManager.clearPlaylist()
                 }
@@ -93,35 +88,70 @@ struct ContentView: View {
             
             .frame(width: 200, height: 450)
             .border(Color(.orange))
-            
-            // Canvas View
+
             VStack {
-                Canvas { context, size in
-                    if let _ = audioManager.player.file, audioManager.isLoaded {
+                Group {
+                    if canvasManager.isLive {
+                        // live mode: redraw on a timer so the scrolling spectrogram animates
+                        // even though warpedData changes aren't observed by this view
+                        TimelineView(.periodic(from: .now, by: 1.0 / 30.0)) { timeline in
+                            let tick = timeline.date
+                            Canvas { context, size in
+                                _ = tick
+                                if let cgImage = (try? canvasManager.visualModel?.drawGraph(
+                                    rect: displaySize, color: Color(.red), lineWidth: 1.0)) ?? nil {
+                                    context.draw(Image(decorative: cgImage, scale: 1),
+                                                 in: CGRect(origin: .zero, size: size))
+                                }
+                            }
+                        }
+                    } else {
+                        Canvas { context, size in
+                            if let _ = audioManager.player.file, audioManager.isLoaded {
+                                do {
+                                    //  grabs raw data from the AVAudioFile and processes it via unique downsampling technique
+                                    let cgImage = try canvasManager.visualModel?.drawGraph(rect: displaySize, color: Color(.red), lineWidth: CGFloat(1.0)) // color actually doesnt do anything for spectrogram
+
+                                    if let cgImage {
+                                        // draw into the canvas's actual size, not the fixed 300x600
+                                        // displaySize, so the whole spectrogram is visible (not clipped)
+                                        context.draw(Image(decorative: cgImage, scale: 1),
+                                                     in: CGRect(origin: .zero, size: size))
+                                    }
+                                } catch let error {
+                                    errorReporter.report(error)
+                                }
+                            } else {
+                                let placeholderText = Text("\(micManager.ampLevel)")
+                                context.draw(placeholderText, at: CGPoint(x: size.width / 2, y: size.height / 2))
+                            }
+                        }
+                        .onChange(of: audioManager.player.file) { _, newState in
+                            // reruns canvas closure if loaded file is changed.
+                        }
+                    }
+                }
+                .frame(width: 300, height: 200)
+                .border(Color(.blue))
+                .padding(10)
+
+                // Live mic spectrogram toggle
+                Button(canvasManager.isLive ? "Stop Live" : "Go Live") {
+                    Task {
                         do {
-                            //  grabs raw data from the AVAudioFile and processes it via unique downsampling technique, we find issue with the dsData returning nil after it tries the below function
-                            let cgImage = try canvasManager.visualModel?.drawGraph(rect: displaySize, color: Color(.red), lineWidth: CGFloat(1.0)) // color actually doesnt do anything for spectrogram
-                            
-                            if let cgImage {
-                                // draw into the canvas's actual size, not the fixed 300x600
-                                // displaySize, so the whole spectrogram is visible (not clipped)
-                                context.draw(Image(decorative: cgImage, scale: 1),
-                                             in: CGRect(origin: .zero, size: size))
+                            if canvasManager.isLive {
+                                canvasManager.stopLive()
+                                micManager.stopRecording()
+                            } else {
+                                try await micManager.startRecording()
+                                let sampleRate = micManager.engine.inputNode.outputFormat(forBus: 0).sampleRate
+                                canvasManager.startLive(mic: micManager, sampleRate: sampleRate)
                             }
                         } catch let error {
                             errorReporter.report(error)
                         }
-                    } else {
-                        let placeholderText = Text("\(micManager.ampLevel)")
-                        context.draw(placeholderText, at: CGPoint(x: size.width / 2, y: size.height / 2))
                     }
-    
                 }
-                .onChange(of: audioManager.player.file) { _, newState in
-                    // reruns canvas closure if loaded file is changed.
-                }
-                .frame(width: 300, height: 200)
-                .border(Color(.blue))
                 .padding(10)
                 
                 // Playback Button
@@ -138,11 +168,8 @@ struct ContentView: View {
                         }
                     }
                     .padding(10)
-                    
-                    // Time Display
                     Text("\(audioManager.player.currentTime, specifier: "%.1f")")
-                    
-                    // Seeking Bar
+
                     Slider(
                         value: $progressSlider,
                         in: 0...1,

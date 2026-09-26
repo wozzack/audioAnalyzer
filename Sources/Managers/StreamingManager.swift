@@ -23,6 +23,8 @@ class StreamingManager: ObservableObject {
     }
     
     func start(sampleRate: Double, consumer: StreamingConsumer) {
+        self.consumer = consumer
+        consumer.configure(sampleRate: sampleRate)
         renderer.configure(sampleRate: sampleRate)
         queue.async { [weak self] in
             self?.frameAccumulator.removeAll(keepingCapacity: true)
