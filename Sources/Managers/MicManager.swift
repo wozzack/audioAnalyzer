@@ -73,13 +73,12 @@ class MicManager: ObservableObject {
      */
     func startRecording() async throws {
         // request mic permission; bail out if the user denies it (otherwise the
-        // engine would crash trying to open an input it isn't allowed to use)
+        // engine would crash trying to open an input it isnt allowed to use)
         let granted = await AVCaptureDevice.requestAccess(for: .audio)
         guard granted else {
             throw AudioManagerError.GenericFailure(funcName: "startRecording", reason: "microphone access was denied")
         }
-        // 0. reject a re-entrant start. installTap asserts `nullptr == Tap()`, so
-        // installing a second tap on an already-recording engine hard-crashes.
+        // 0. reject a re-entrant start,installing a second tap on an already recording engine hardcrashes
         guard !recordingFlag.load(ordering: .acquiring) else {
             throw AudioManagerError.GenericFailure(funcName: "startRecording", reason: "already recording")
         }
@@ -95,8 +94,8 @@ class MicManager: ObservableObject {
         let format = input.outputFormat(forBus: 0)
         // frameCapacity = drain interval * sample rate, multiplied by 2 for safety margin since drain interval isnt perfectly consistant
         drainBuffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: AVAudioFrameCount(format.sampleRate * 0.1 * 2)) ?? AVAudioPCMBuffer()
-        // defensively clear any tap left over from a prior session that didn't stop
-        // cleanly; installTap asserts if a tap already exists on this bus.
+        // defensively clear any tap left over from a prior session that didnt stop
+        // cleanly installTap asserts if a tap already exists on this bus
         input.removeTap(onBus: 0)
         input.installTap(onBus: 0, bufferSize: 1024, format: format) { [weak self] buffer, time in
             self?.bufferHandler(buffer)
@@ -104,8 +103,7 @@ class MicManager: ObservableObject {
         do {
             audioFile = try AVAudioFile(forWriting: outputURL, settings: format.settings)
         } catch {
-            // undo the partial start so a later attempt isn't blocked by the flag
-            // and doesn't leak the tap we just installed
+            // undo the partial start so a later attempt isn't blocked by the flagnd doesnt leak the tap we just installed
             input.removeTap(onBus: 0)
             recordingFlag.store(false, ordering: .releasing)
             throw AudioManagerError.GenericFailure(funcName: "startRecording", reason: "failed to create avaudiofile")

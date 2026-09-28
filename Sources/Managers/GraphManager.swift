@@ -428,14 +428,11 @@ class SpectrogramView: VisualGraph, ObservableObject {
         return cgImage
      }
     
-    // use @mainactor here?
-    func drawGraph(rect: CGRect, color: Color, lineWidth: CGFloat) throws -> CGImage {
+    @MainActor func drawGraph(rect: CGRect, color: Color, lineWidth: CGFloat) throws -> CGImage {
         // no columns yet (e.g. live mode before the first frame arrives) — nothing to draw
         guard !warpedData.isEmpty else {
             throw GraphManagerError.GenericFailure(funcName: "drawGraph", reason: "no spectrogram data yet")
         }
-        // TEMP: measure how often drawGraph runs and how long it takes
-        let debugT0 = CFAbsoluteTimeGetCurrent()
         // created once actually called, implies spectrogram data exists at this point due to control flow
         lazy var timeSlices = warpedData.count
         lazy var freqBins = warpedData[0].count
@@ -453,29 +450,22 @@ class SpectrogramView: VisualGraph, ObservableObject {
         var flatSpectrogramData = [Float](repeating: 0, count: timeSlices * freqBins)
         // the color LUT expects input in 0...1, but raw magnitudes span 0...~130,
         // so normalize with a dB (log) curve: peak -> 1.0, floorDB and below -> 0.0
-        // guard against an all-zero (silent) window: a 0 max would make the dB
-        // conversion below divide by zero -> NaN -> garbage/black pixels. Falling
-        // back to 1 renders silence as the clean dB floor instead. Compute the max
-        // per-column (no flatMap) to avoid allocating a full flattened copy each draw.
         var rawMax: Float = 0
         for column in warpedData {
             if let m = column.max(), m > rawMax { rawMax = m }
         }
         let maxMag = rawMax > 0 ? rawMax : 1
+        // removed float divide and instead use multiply for like 10x performance increase (in optimal setting)
         let floorDB: Float = -80
         let invMaxMag = 1 / maxMag
-        let invSpan = 1 / (-floorDB)          // floorDB..0 -> 0..1
-        // access each column once through an unsafe buffer pointer and write straight
-        // into the flat destination. Indexing warpedData[t][f] directly in this 180k-
-        // element loop pays copy-on-write ARC + bounds-check overhead on the inner
-        // array every iteration, which is what made this ~170ms/frame.
+        let invSpan = 1 / (-floorDB)
+        // we pull the inner array out as a unsafemutablebufferpointer to avoid the atomic refcount update (expensive due to ordering constraints), now its simply non-atomic load and store operations (cheap!)
         flatSpectrogramData.withUnsafeMutableBufferPointer { dst in
             for timeSlice in 0..<timeSlices {
                 warpedData[timeSlice].withUnsafeBufferPointer { col in
                     for freqBin in 0..<freqBins {
-                        // row-major: row = f, col = t (freq flipped so low freq sits at the bottom)
                         let flatIndex = (freqBins - 1 - freqBin) * timeSlices + timeSlice
-                        let db = 20 * log10(max(col[freqBin], 1e-9) * invMaxMag) // 0 dB at peak, negative below
+                        let db = 20 * log10(max(col[freqBin], 1e-9) * invMaxMag)
                         dst[flatIndex] = max(0, min(1, (db - floorDB) * invSpan))
                     }
                 }
@@ -507,25 +497,9 @@ class SpectrogramView: VisualGraph, ObservableObject {
         guard let cgImage = rgbBuffer.makeCGImage(cgImageFormat: rgbImageFormat) else {
             throw GraphManagerError.GenericFailure(funcName: "drawGraph2", reason: "failed to create CGImage from rgbBuffer")
         }
-        // TEMP: accumulate call count + elapsed, report ~once/sec
-        SpectrogramView.debugCalls += 1
-        SpectrogramView.debugElapsed += CFAbsoluteTimeGetCurrent() - debugT0
-        let nowT = CFAbsoluteTimeGetCurrent()
-        if nowT - SpectrogramView.debugLastReport >= 1 {
-            let avgMs = SpectrogramView.debugElapsed / Double(max(SpectrogramView.debugCalls, 1)) * 1000
-            print(String(format: "[draw] calls/sec=%d avgMs=%.1f cols=%d rows=%d", SpectrogramView.debugCalls, avgMs, timeSlices, freqBins))
-            SpectrogramView.debugCalls = 0
-            SpectrogramView.debugElapsed = 0
-            SpectrogramView.debugLastReport = nowT
-        }
         return cgImage // ?? SpectrogramView.emptyCGImage
      }
 
-    // TEMP diagnostics for live-render throughput
-    static var debugCalls = 0
-    static var debugElapsed: Double = 0
-    static var debugLastReport: Double = 0
-    
     static var multidimensionalLookupTable: vImage.MultidimensionalLookupTable = {
         let amplitudeBins = UInt8(32) // divide all amplitude values into 32 bins for individual coloring
         let inputChannels = 1 // floats of intensity values
