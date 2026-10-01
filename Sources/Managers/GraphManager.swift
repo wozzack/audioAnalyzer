@@ -7,6 +7,7 @@ import AudioKit
 import SwiftUI
 import Waveform
 import Accelerate
+import os
 
 protocol VisualGraph: ObservableObject, AnyObject {
     associatedtype DSType
@@ -38,7 +39,6 @@ class WaveformView: VisualGraph, ObservableObject {
     // need to convert to CGPoints
     var AVFile: AVAudioFile?
     var graphType: GraphType = .waveform
-    
     // traditionally we would make this min/max and display as an float array of pairs
     // but we can also use a single float array and average the samples
     
@@ -98,8 +98,11 @@ class SpectrogramView: VisualGraph, ObservableObject {
     var sampleRate: Double? // initialized by configure()
     var frequencyScale: FrequencyScale = .mel
     var frequencyMap: FrequencyMap? // initialized by configure()
-    var outputBins: Int = 600
-    var rollingWidth: Int = 300 // shapeSize.size.width
+    var outputBins: Int = 256 // this is warped from 1025 (FFT / 2) + 1 to 256 mel bins
+    var rollingWidth: Int = 512 // width of image resolution, hopsize and hopoverlap
+
+    // emits timed intervals
+    private let signposter = OSSignposter(subsystem: "AudioDemo", category: "render")
     
     // freq and amp. [amp1, amp2, amp3, ...], timeSlice[freqBin]
     var spectrogramData: [[Float]] = [] // 2D array for time-frequency spectrogram
@@ -108,12 +111,12 @@ class SpectrogramView: VisualGraph, ObservableObject {
     
     let hannWindow = vDSP.window(ofType: Float.self,
                                  usingSequence: .hanningDenormalized,
-                                 count: 1024,
+                                 count: 2048,
                                  isHalfWindow: false)
     lazy var dft: vDSP.DiscreteFourierTransform<Float> = {
         do {
             return try vDSP.DiscreteFourierTransform(previous: nil,
-                                                     count: 1024,
+                                                     count: 2048,
                                                      direction: .forward,
                                                      transformType: .complexComplex,
                                                      ofType: Float.self)
@@ -219,7 +222,7 @@ class SpectrogramView: VisualGraph, ObservableObject {
             self.rawData = [AVFile.floatChannelData() as Any]
             self.AVFile = AVFile
             self.sampleRate = buffer.format.sampleRate
-            self.frequencyMap = frequencyMapping(scale: frequencyScale, sampleRate: buffer.format.sampleRate, frameSize: 1024, outputRows: Int(shapeSize.height), minFrequency: 40, maxFrequency: Float(buffer.format.sampleRate / 2))
+            self.frequencyMap = frequencyMapping(scale: frequencyScale, sampleRate: buffer.format.sampleRate, frameSize: 2048, outputRows: Int(shapeSize.height), minFrequency: 40, maxFrequency: Float(buffer.format.sampleRate / 2))
             guard let frequencyMap = self.frequencyMap
             else {
                 throw GraphManagerError.GenericFailure(funcName: "processAudio", reason: "Frequency map failed to build.")}
@@ -296,12 +299,6 @@ class SpectrogramView: VisualGraph, ObservableObject {
         let imaginary = [Float](repeating: 0, count: timeFrame.count)
 
         // create DFT for this frame size (explicit to help compiler)
-        /* let dft = try vDSP.DiscreteFourierTransform(previous: nil,
-                                                   count: timeFrame.count,
-                                                   direction: .forward,
-                                                   transformType: .complexComplex,
-                                                   ofType: Float.self)
-         */
         // perform transform and break into explicit sub-expressions
         let transformed = dft.transform(real: windowedData, imaginary: imaginary)
         let realPart = transformed.0
@@ -433,6 +430,10 @@ class SpectrogramView: VisualGraph, ObservableObject {
         guard !warpedData.isEmpty else {
             throw GraphManagerError.GenericFailure(funcName: "drawGraph", reason: "no spectrogram data yet")
         }
+        // time this call; shows up as an interval in Instruments' os_signpost lane
+
+        let interval = signposter.beginInterval("drawGraph", "columnCount = \(self.warpedData.count), rowCount = \(self.warpedData[0].count)")
+        defer { signposter.endInterval("drawGraph", interval) }
         // created once actually called, implies spectrogram data exists at this point due to control flow
         lazy var timeSlices = warpedData.count
         lazy var freqBins = warpedData[0].count
@@ -559,7 +560,7 @@ class SpectrogramView: VisualGraph, ObservableObject {
 extension SpectrogramView: StreamingConsumer {
     func configure(sampleRate: Double) {
         self.sampleRate = sampleRate
-        self.frequencyMap = frequencyMapping(scale: frequencyScale, sampleRate: sampleRate, frameSize: 1024, outputRows: outputBins, minFrequency: 40, maxFrequency: Float(sampleRate) / 2) }
+        self.frequencyMap = frequencyMapping(scale: frequencyScale, sampleRate: sampleRate, frameSize: 2048, outputRows: outputBins, minFrequency: 40, maxFrequency: Float(sampleRate) / 2) }
     func consume(frame: [Float]) {
         guard let column = try? createColumn(from: frame)
         else { return }

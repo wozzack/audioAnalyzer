@@ -13,8 +13,7 @@ struct ContentView: View {
     init(micManager: MicManager) {
         self.micManager = micManager
     }
-    
-    var displaySize = CGRect(x: 0, y: 0, width: 300, height: 600)
+
     @State var song: String = "misato.mp3"
     @State var isPlaylistShowing: Bool = false
     @State var progressSlider: Double = 0.0
@@ -94,12 +93,12 @@ struct ContentView: View {
                     if canvasManager.isLive {
                         // live mode: redraw on a timer so the scrolling spectrogram animates
                         // even though warpedData changes aren't observed by this view
-                        TimelineView(.periodic(from: .now, by: 1.0 / 30.0)) { timeline in
+                        TimelineView(.periodic(from: .now, by: 1.0 / 60.0)) { timeline in
                             let tick = timeline.date
                             Canvas { context, size in
                                 _ = tick
                                 if let cgImage = (try? canvasManager.visualModel?.drawGraph(
-                                    rect: displaySize, color: Color(.red), lineWidth: 1.0)) ?? nil {
+                                    rect: CGRect(origin: .zero, size: size), color: Color(.red), lineWidth: 1.0)) ?? nil {
                                     context.draw(Image(decorative: cgImage, scale: 1),
                                                  in: CGRect(origin: .zero, size: size))
                                 }
@@ -110,7 +109,7 @@ struct ContentView: View {
                             if let _ = audioManager.player.file, audioManager.isLoaded {
                                 do {
                                     //  grabs raw data from the AVAudioFile and processes it via unique downsampling technique
-                                    let cgImage = try canvasManager.visualModel?.drawGraph(rect: displaySize, color: Color(.red), lineWidth: CGFloat(1.0)) // color actually doesnt do anything for spectrogram
+                                    let cgImage = try canvasManager.visualModel?.drawGraph(rect: CGRect(origin: .zero, size: size), color: Color(.red), lineWidth: CGFloat(1.0)) // color actually doesnt do anything for spectrogram
 
                                     if let cgImage {
                                         // draw into the canvas's actual size, not the fixed 300x600
@@ -131,7 +130,7 @@ struct ContentView: View {
                         }
                     }
                 }
-                .frame(width: 300, height: 200)
+                .frame(width: 600, height: 300)
                 .border(Color(.blue))
                 .padding(10)
 
@@ -201,7 +200,7 @@ struct ContentView: View {
                 }
                 .border(Color(.green))
             }
-            .frame(width: 400, height: 400)
+            .frame(width: 650, height: 450)
             .border(Color(.orange))
         }
         .alert(item: $errorReporter.currentError) { presented in
