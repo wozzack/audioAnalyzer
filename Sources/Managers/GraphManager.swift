@@ -90,8 +90,8 @@ class SpectrogramView: VisualGraph, ObservableObject {
     // time, frequency, color (amplitude)
     typealias DSType = [Float]
     var graphType: GraphType = .spectrogram
-    var rawData: [Any]? = []
-    var dsData: DSType? = []
+    var rawData: [Any]? = [] // 
+    var dsData: DSType? = [] // downsampled data
     var shapeSize = CGRect(x: 0, y: 0, width: 300, height: 600)
     
     var AVFile: AVAudioFile?
@@ -99,7 +99,7 @@ class SpectrogramView: VisualGraph, ObservableObject {
     var frequencyScale: FrequencyScale = .mel
     var frequencyMap: FrequencyMap? // initialized by configure()
     var outputBins: Int = 256 // this is warped from 1025 (FFT / 2) + 1 to 256 mel bins
-    var rollingWidth: Int = 512 // width of image resolution, hopsize and hopoverlap
+    var rollingWidth: Int = 512 // width of image resolution, hopsize and hopoverlap, 2:1 ratio
 
     // emits timed intervals
     private let signposter = OSSignposter(subsystem: "AudioDemo", category: "render")
@@ -107,12 +107,13 @@ class SpectrogramView: VisualGraph, ObservableObject {
     // freq and amp. [amp1, amp2, amp3, ...], timeSlice[freqBin]
     var spectrogramData: [[Float]] = [] // 2D array for time-frequency spectrogram
     var warpedData: [[Float]] = [] // spectrogramData but fitted to outputBins rows
-    var CGImageData: [SpectrogramCell]? = []
     
     let hannWindow = vDSP.window(ofType: Float.self,
                                  usingSequence: .hanningDenormalized,
                                  count: 2048,
                                  isHalfWindow: false)
+    // undo the inflation/deflation done by both the hann window, along with the general summing of all samples in a frame
+    lazy var magnitudeScale: Float = 2 / vDSP.sum(hannWindow)
     lazy var dft: vDSP.DiscreteFourierTransform<Float> = {
         do {
             return try vDSP.DiscreteFourierTransform(previous: nil,
@@ -129,41 +130,12 @@ class SpectrogramView: VisualGraph, ObservableObject {
     
     // create DFT per-frame inside frameDFT to avoid referencing undefined symbols and to keep type-checking simple
     
-    struct SpectrogramCell {
-        let x: CGFloat
-        let y: CGFloat
-        let color: Color
-        let width: CGFloat
-        let height: CGFloat
-    }
     
     struct FrequencyMap {
         let lo: [Int]
         let hi: [Int]
         let frac: [Float]
         let outputBins: Int
-    }
-    
-    
-    struct SpectrogramCanvas: View {
-        let CGImageData: [SpectrogramCell]
-        
-        
-        @ViewBuilder
-        private func cellView(for cell: SpectrogramCell) -> some View {
-            Rectangle()
-                .fill(cell.color)
-                .frame(width: cell.width, height: cell.height)
-                .position(x: cell.x, y: cell.y)
-        }
-        
-        var body: some View {
-            ZStack {
-                ForEach(CGImageData.indices, id: \ .self) { idx in
-                    cellView(for: CGImageData[idx])
-                }
-            }
-        }
     }
     
     /*
@@ -209,7 +181,6 @@ class SpectrogramView: VisualGraph, ObservableObject {
     func processAudio(AVFile: AVAudioFile) throws {
         // reset accumulators so repeated calls can't stack duplicate frames
         spectrogramData.removeAll(keepingCapacity: true)
-        CGImageData?.removeAll(keepingCapacity: true)
         // implement spectrogram processing
         if AVFile == AVFile {
             guard let buffer = try AVAudioPCMBuffer(file: AVAudioFile(forReading: AVFile.url)),
@@ -312,7 +283,7 @@ class SpectrogramView: VisualGraph, ObservableObject {
         for i in 0..<((realPart.count / 2) + 1) {
             let r = realPart[i]
             let im = imagPart[i]
-            magnitudes.append(sqrt(r * r + im * im))
+            magnitudes.append(sqrt(r * r + im * im) * magnitudeScale)
         }
         return Array(magnitudes[0..<uniqueCount])
     }
@@ -367,64 +338,6 @@ class SpectrogramView: VisualGraph, ObservableObject {
         return output
     }
     
-    func ODcolorMapping(ampValue: Float, colorIndex: Int) throws -> Color {
-        // so first bin will have value [0.0/31.0], looking like [[0.0/31,0], [1.0/31.0], [2.0/31.0], ...] in its entirety
-        let colorBins = 32 // design choice
-        let normalizedValue = CGFloat(colorIndex) / CGFloat(colorBins - 1)
-        let startHue: CGFloat = (240.0/360.0) // blue hsv
-        let hue = startHue - (startHue * normalizedValue) // 1.0 = red, 0.5 = green, 0.0 = blue
-        let brightness = sqrt(normalizedValue)
-        let saturation = log(1 + normalizedValue - 0.5) * 2
-        
-        let color = Color(hue: hue, saturation: saturation, brightness: brightness)
-        return color
-    }
-    
-    // puts extra layer of abstraction and normalizes the values, use for actual CGImage
-    func ODconvertToImageData() throws {
-        let freqBins = CGFloat(self.spectrogramData[0].count)
-        let timeSlices = CGFloat(self.spectrogramData.count)
-        let colorBins = 32 // design decision
-        let maxAmpValue = spectrogramData.flatMap { $0 }.max() ?? 0
-        for (timeIndex, timeSlice) in self.spectrogramData.enumerated() {
-            // freq and amp. [amp1, amp2, amp3, ...] = timeSlice[timeIndex][freqIndex], so timeSlice[N] would be made of N amplitude bins that are contained in the time duration of timeSlice, where N is the indexing of the timeslice
-            for (freqIndex, ampValue) in timeSlice.enumerated() {
-                let hSteps = self.shapeSize.height / freqBins
-                let wSteps = self.shapeSize.width / timeSlices // should be deltaTime we are calculating
-                let yNorm = CGFloat(freqIndex) * hSteps
-                let xNorm = CGFloat(timeIndex) * wSteps
-                // spectrogramData = [[...],...,[...]]
-                // spectrogramData[timeIndex] = [amp1, amp2, ..., ampN] = timeSlice
-                // spectrogramData[timeIndex][freqIndex] = amp = ampValue
-                do {
-                    let normAmpValue = ampValue / maxAmpValue
-                    let colorIndex = min(max(Int(normAmpValue * Float(colorBins - 1)), 0), colorBins - 1)
-                    let color = try ODcolorMapping(ampValue: ampValue, colorIndex: colorIndex)
-                    let cellWidth = self.shapeSize.width / CGFloat(timeSlices)
-                    let cellHeight = self.shapeSize.height / CGFloat(freqBins)
-                    let spectra = SpectrogramCell(x: xNorm, y: yNorm, color: color, width: cellWidth, height: cellHeight)
-                    self.CGImageData?.append(spectra)
-                } catch {
-                    throw GraphManagerError.GenericFailure(funcName: "convertToImageData", reason: "failure to color map")
-                }
-            }
-        }
-    }
-    
-    @MainActor func ODdrawGraph(rect: CGRect, color: Color, lineWidth: CGFloat) throws -> CGImage {
-         guard let CGImageData = self.CGImageData
-         else {
-             throw GraphManagerError.GenericFailure(funcName: "drawGraph", reason: "CGImageData is nil when trying to draw graph")
-         }
-         let canvasImage = SpectrogramCanvas(CGImageData: CGImageData)
-         let renderer = ImageRenderer(content: canvasImage)
-        
-        guard let cgImage = renderer.cgImage else {
-            throw GraphManagerError.GenericFailure(funcName: "drawGraph", reason: "failed to render spectrogram cgImage")
-        }
-        return cgImage
-     }
-    
     @MainActor func drawGraph(rect: CGRect, color: Color, lineWidth: CGFloat) throws -> CGImage {
         // no columns yet (e.g. live mode before the first frame arrives) — nothing to draw
         guard !warpedData.isEmpty else {
@@ -452,13 +365,16 @@ class SpectrogramView: VisualGraph, ObservableObject {
         // the color LUT expects input in 0...1, but raw magnitudes span 0...~130,
         // so normalize with a dB (log) curve: peak -> 1.0, floorDB and below -> 0.0
         var rawMax: Float = 0
+        // goes through each column in warpedData and updates the rawMax if a column contains an m-value that is bigger
         for column in warpedData {
             if let m = column.max(), m > rawMax { rawMax = m }
         }
-        let maxMag = rawMax > 0 ? rawMax : 1
+        let refMag: Float = 1.0 // choose to be 0dbFS
+        // serves as a check for when we have complete silence (0.0), will replace with 1.0 if so
+        // let maxMag = rawMax > 0 ? rawMax : 1
         // removed float divide and instead use multiply for like 10x performance increase (in optimal setting)
-        let floorDB: Float = -80
-        let invMaxMag = 1 / maxMag
+        let floorDB: Float = -80 // 0.0001 in linear units
+        let invMaxMag = 1 / refMag
         let invSpan = 1 / (-floorDB)
         // we pull the inner array out as a unsafemutablebufferpointer to avoid the atomic refcount update (expensive due to ordering constraints), now its simply non-atomic load and store operations (cheap!)
         flatSpectrogramData.withUnsafeMutableBufferPointer { dst in
