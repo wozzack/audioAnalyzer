@@ -14,18 +14,23 @@ class StreamingManager: ObservableObject {
                               qos: .userInitiated)
     // fires closure on the dispatch queue every x seconds when deployed
     var timer: DispatchSourceTimer?
-    weak var consumer: StreamingConsumer? // avoid reference cycle with StreamingManager and consumer, can use consumer without keeping it alive
+    // weak var consumer: StreamingConsumer? // avoid reference cycle with StreamingManager and consumer, can use consumer without keeping it alive
     var frameAccumulator: [Float] = [] // mutated with consume(), cleared by start() and stop()
     let frameSize = 2048, hopSize = 512 // per fft frame
     
     init(source: MicManager) {
         self.source = source
     }
-    
-    func start(sampleRate: Double, consumer: StreamingConsumer) {
-        self.consumer = consumer
-        consumer.configure(sampleRate: sampleRate)
+    /*
+     start: caller for the packager. runs configuration setting on SpectrogramView() object then assigns off of the main thread onto the streaming queue we call to clear the accumulator before we resume the timer, which is allocated here and set to start immediately once resumed every 1/50 of a second and set to call the packager
+     @: called by startLive(); calls configure() and packager()
+     needs: sampleValue, dispatchQueue initialization
+     gives: the queue a task to do, along with configuration of the renderer (SpectrogramView())
+     */
+    func start(sampleRate: Double) {
+        // self.consumer = consumer
         renderer.configure(sampleRate: sampleRate)
+        // do on queue to avoid race condition since it does a write, is called before we resume timer (which is by default suspended)
         queue.async { [weak self] in
             self?.frameAccumulator.removeAll(keepingCapacity: true)
         }
@@ -38,8 +43,13 @@ class StreamingManager: ObservableObject {
         timer = t
         t.resume()
     }
-    // micmanagers drain write but for streaming, turns raw and fast incoming samples into something that we can work with.
-    private func packager() {
+    /*
+     packager: micmanagers drain write but for streaming, turns raw and fast incoming samples into something that we can work with. while there is a sample to read, will append to the accumulator. once acculumator is full, consume the created window array and remove hopSize first elements in the accumulator (remember there has to be overlap)
+     @: called by start(); calls consume() and read()
+     needs: sample to read (or technically it doesnt)
+     gives: a window for SpectrogramView() to consume, an updated accumulator buffer
+     */
+    func packager() {
         // keep adding samples to the accumulator as they come in, 44100hz
         while let sample = source.visualBuffer.read() {
             frameAccumulator.append(sample)
@@ -48,15 +58,35 @@ class StreamingManager: ObservableObject {
         while frameAccumulator.count >= frameSize {
             let window = Array(frameAccumulator.prefix(frameSize))
             frameAccumulator.removeFirst(hopSize)
-            consumer?.consume(frame: window)
+            renderer.consume(frame: window)
         }
     }
-    
+    /*
+     stop: deallocates the timer and assigns clearing task to queue async-ly
+     @: called by stopLive(); calls nothing
+     needs: nothing
+     gives: deallocated timer, emptied (capacity retained), updated accumulator
+     */
     func stop() {
         timer?.cancel()
         timer = nil
         queue.async { [weak self] in
             self?.frameAccumulator.removeAll(keepingCapacity: true)
+        }
+    }
+    
+    /*
+     setFrequencyScale: for live modification of the spectrogram to fit a new scaling mode (linear, mel, log). rebuilds frequency mapping and clears cache.
+     @: called by setFrequencyScale() (yes same name but in CanvasManager trust; calls rebuildFrequencyMap() and clearSpectrogramCaches()
+     needs: nothing
+     gives: new frequency map, cleared spectrogram cache
+     */
+    func setFrequencyScale(_ scale: FrequencyScale) {
+        queue.async { [weak self] in
+            self?.renderer.rebuildFrequencyMap(scale: scale)
+        }
+        Task { @MainActor [weak self] in
+            self?.renderer.clearSpectrogramCaches()
         }
     }
 }

@@ -68,6 +68,7 @@ class MicManager: ObservableObject {
     }
     /*
     startRecording: controls recordingFlag variable, starts the engine and creates timer here since cancelling is forever and it is more functionally clear to do it here vs in the initializer. sets the schedule for the timer, and creates event handler that calls the drainWrite method every interval, then starts the timer cycle.
+     @: called by ContentView; calls reset(), bufferHandler()
      needs: engine, queue, and recordingFlag initialization
      gives: timer object scheduling and initialization, updates boolean of recordingFlag, starts engine and timer objects
      */
@@ -92,7 +93,7 @@ class MicManager: ObservableObject {
         // start() asserts (inputNode != nullptr) if no I/O node has been realized yet.
         let input = engine.inputNode
         let format = input.outputFormat(forBus: 0)
-        // frameCapacity = drain interval * sample rate, multiplied by 2 for safety margin since drain interval isnt perfectly consistant
+        // frameCapacity = sample rate * drain interval, multiplied by 2 for safety margin since drain interval isnt perfectly consistant
         drainBuffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: AVAudioFrameCount(format.sampleRate * 0.1 * 2)) ?? AVAudioPCMBuffer()
         // defensively clear any tap left over from a prior session that didnt stop
         // cleanly installTap asserts if a tap already exists on this bus
@@ -130,11 +131,11 @@ class MicManager: ObservableObject {
         writeTimer = timer
         // resume vs activate?
         timer.resume()
-        
     }
     
     /*
     stopRecording: controls recordingFlag variable, stops the engine and deallocates timer object. schedules the flush drainWrite to the writeQueue via sync, if we did async it could return function before it actually fully executed the drainWrite method
+     @: called by ContentView; calls drainWrite()
      needs: engine, timer, queue, and recordingFlag initialization
      gives: updates boolean of recordingFlag, stops engine and deallocates timer object
      */
@@ -156,7 +157,8 @@ class MicManager: ObservableObject {
     
     /*
      bufferHandler: takes in an PCMBuffer from the tap and writes it into the ring buffer. calls computeLevel and stores that in ampLevel. iterates through the ring buffer float array and performs write operation on the nth value in the ring buffer float array, setting it equal to the nth value in the given pcm buffer.
-     needs: valid pcm buffer (does exist, with greater than zero frame lengths, and existing samples in the first channel array
+     @: called by startRecording(); calls write()
+     needs: valid pcm buffer (does exist, with greater than zero frame lengths, and existing samples in the first channel array)
      gives: updates to dropped buffer count if failure, edits ring buffer, and stores computed level
      */
     func bufferHandler(_ pcm: AVAudioPCMBuffer) {
@@ -191,10 +193,10 @@ class MicManager: ObservableObject {
     }
     /*
     drainWrite: when called by the disk timer periodically, it calls the read method from ringBuffer, then proceeds to prepare a pcm buffer to write to file. first we initialize the buffer with proper format, then create a pointer to the empty pcm buffers channels, then create a pointer to each nth value inside a single channel, and call on the ringBuffer read() method for 1024 values, ringBuffer.read will automactically increment one by one. then we create a new file with the data from the pcm buffer
+     @: called by stopRecording() and startRecording(); calls read()
      needs: buffer inside ring buffer and droppedBuffers initialized
      gives: avaudiofile using the created avaudioformat and avaudiopcmbuffer
      */
-    
     func drainWrite() {
         // called by disk timer (background queue)
         
@@ -282,12 +284,22 @@ class RingBuffer <T> {
         buffer.deallocate()
     }
 
-    // rewind to empty. only safe to call when no producer/consumer is running
+    /*
+    reset: resets the indices of the ring buffer so that when we call a new tap, we arent reading previous session values. use atomic stores since no allocation nor locks allowed here.
+     @: called by startRecording(); calls nothing
+     needs: nothing really other than ring buffer initialized
+     gives: the value 0 into the atomic read and write indices
+    */
     func reset() {
         readIndex.store(0, ordering: .relaxed)
         writeIndex.store(0, ordering: .relaxed)
     }
-
+    /*
+     read: does an atomic load (no allocation) into unmutable variables reader and writer, does a check to see if empty via modulo operation. grabs data from unsafemutablepointer on reader index, then updates reader index += 1 via atomic store
+     @: called by drainWrite(); calls nothing
+     needs: initialized read and write indices and non-empty buffer
+     gives: an updated readIndex and the data from the unsafemutablepointer
+     */
     func read() -> T? {
         let reader = readIndex.load(ordering: .acquiring)
         let writer = writeIndex.load(ordering: .acquiring)
@@ -299,6 +311,13 @@ class RingBuffer <T> {
         readIndex.store((reader + 1) % capacity, ordering: .releasing)
         return data
     }
+    
+    /*
+     write: does an atomic load (no allocation) into unmutable variables reader and writer, does a check to see if full via modulo operation. writes data into unsafemutablepointer at writer index, then updates writer index += 1 via atomic store
+     @: called by bufferHandler(); calls nothing
+     needs: data, initialized read and write indices, and non full buffer for successful return
+     gives: updated buffer with new data, and updated write index
+     */
     func write(data: T) -> Bool {
         let reader = readIndex.load(ordering: .acquiring)
         let writer = writeIndex.load(ordering: .acquiring)

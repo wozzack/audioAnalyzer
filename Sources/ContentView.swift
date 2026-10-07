@@ -18,7 +18,28 @@ struct ContentView: View {
     @State var isPlaylistShowing: Bool = false
     @State var progressSlider: Double = 0.0
     @State var amplitudeLevel: Float = 0.0
-    
+    // spectrogram display controls
+    @State var freqScale: FrequencyScale = .mel
+    @State var orientation: SpectrogramOrientation = .horizontal
+
+    // draws the spectrogram image into the canvas honoring the chosen orientation
+    // orientation is same image data laid out differently
+    private func drawSpectrogram(_ image: CGImage, in context: GraphicsContext, size: CGSize) {
+        var ctx = context
+        let img = Image(decorative: image, scale: 1)
+        switch orientation {
+        case .horizontal:
+            ctx.draw(img, in: CGRect(origin: .zero, size: size))
+        case .vertical:
+            // rotate about center and draw into a swapped-dimension rect so the image
+            // fills the frame
+            ctx.translateBy(x: size.width / 2, y: size.height / 2)
+            ctx.rotate(by: .degrees(-90))
+            ctx.draw(img, in: CGRect(x: -size.height / 2, y: -size.width / 2,
+                                     width: size.height, height: size.width))
+        }
+    }
+
     var body: some View {
         HStack {
             VStack {
@@ -99,8 +120,7 @@ struct ContentView: View {
                                 _ = tick
                                 if let cgImage = (try? canvasManager.visualModel?.drawGraph(
                                     rect: CGRect(origin: .zero, size: size), color: Color(.red), lineWidth: 1.0)) ?? nil {
-                                    context.draw(Image(decorative: cgImage, scale: 1),
-                                                 in: CGRect(origin: .zero, size: size))
+                                    drawSpectrogram(cgImage, in: context, size: size)
                                 }
                             }
                         }
@@ -112,10 +132,7 @@ struct ContentView: View {
                                     let cgImage = try canvasManager.visualModel?.drawGraph(rect: CGRect(origin: .zero, size: size), color: Color(.red), lineWidth: CGFloat(1.0)) // color actually doesnt do anything for spectrogram
 
                                     if let cgImage {
-                                        // draw into the canvas's actual size, not the fixed 300x600
-                                        // displaySize, so the whole spectrogram is visible (not clipped)
-                                        context.draw(Image(decorative: cgImage, scale: 1),
-                                                     in: CGRect(origin: .zero, size: size))
+                                        drawSpectrogram(cgImage, in: context, size: size)
                                     }
                                 } catch let error {
                                     errorReporter.report(error)
@@ -134,7 +151,28 @@ struct ContentView: View {
                 .border(Color(.blue))
                 .padding(10)
 
-                // Live mic spectrogram toggle
+                // Spectrogram display controls
+                HStack {
+                    Picker("Scale", selection: $freqScale) {
+                        ForEach(FrequencyScale.allCases) { scale in
+                            Text(scale.label).tag(scale)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .onChange(of: freqScale) { _, newValue in
+                        canvasManager.setFrequencyScale(newValue)
+                    }
+
+                    Picker("Orientation", selection: $orientation) {
+                        ForEach(SpectrogramOrientation.allCases) { o in
+                            Text(o.label).tag(o)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                }
+                .frame(width: 600)
+                .padding(.horizontal, 10)
+                
                 Button(canvasManager.isLive ? "Stop Live" : "Go Live") {
                     Task {
                         do {
@@ -152,8 +190,6 @@ struct ContentView: View {
                     }
                 }
                 .padding(10)
-                
-                // Playback Button
                 HStack {
                     Button(audioManager.isPlaying ? "Pause" : "Play") {
                         do {

@@ -1,16 +1,13 @@
-/*
- really should be trying to shove a lot of the audioManager methods into here
- */
-
 import AVFoundation
-
 import AudioKit
-
 import SwiftUI
-
 import Waveform
 
-
+/*
+ convertToAudioObject:
+ needs: a string of type "x.y", where y is the file extension
+ gives:
+ */
 func convertToAudioObject(s: String) throws -> AudioObject {
     // confirm it exists in our app bundle, want to be general for any file type
     // i want it to be able to auto detect file type by given string, will search in bundle and if multiple exists of diifferent file type, ask to specify file type in the string itself

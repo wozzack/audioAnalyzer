@@ -1,16 +1,7 @@
-/*
- Handle microphone input: NodeRecorder
- Handle Waveform: WaveformDataRequest
- */
-
 import AVFoundation
-
 import AudioKit
-
 import Foundation
-
 import SwiftUI
-
 import Waveform
 
 struct AudioObject: Identifiable, Hashable {
@@ -46,7 +37,10 @@ public class AudioManager: ObservableObject {
 
     /*
      manualSeeking: contains the actual player seek function. contains checks for
-     accidental microseeking and existence. 
+     accidental microseeking and existence
+     @: called by ContentView; calls nothing
+     needs: progress value we want to update to
+     gives: updated previousSeekTime, updated isManualSeeking
      */
     func manualSeeking(prog: Double) throws {
 
@@ -79,10 +73,10 @@ public class AudioManager: ObservableObject {
     }
 
     /*
-     startTimer: invalidates any timeToken that might be there, then schedules a 
-     cycle to run every 0.1 seconds that will either update the progress variable 
-     or do nothing depending on isManualSeeking. also runs a check for if the 
-     audio finished playing and resets if so.
+     startTimer: invalidates any timeToken that might be there, then schedules a cycle to run every 0.1 seconds that will either update the progress variable or do nothing depending on isManualSeeking. also runs a check for if the audio finished playing and resets if so
+     @: called by playAudio(); calls stopAudio()
+     needs: nothing
+     gives: updated progress, new timer
      */
     func startTimer() throws {
         timeToken?.invalidate()
@@ -109,7 +103,13 @@ public class AudioManager: ObservableObject {
             }
         }
     }
-
+    
+    /*
+     stopTimer: deallocates timeToken
+     @: called by pauseAudio() and stopAudio(); calls nothing
+     needs: nothing
+     gives: freed memory
+     */
     func stopTimer() throws {
         guard timeToken != nil
         else {
@@ -119,6 +119,12 @@ public class AudioManager: ObservableObject {
         timeToken = nil
     }
 
+    /*
+     playAudio: starts player and timer and sets isStarted boolean flag
+     @: called by ContentView; calls startTimer()
+     needs: loaded audio file
+     gives: new timer, updated isPlaying boolean flag
+     */
     func playAudio() throws {
         guard isLoaded else {
             throw AudioManagerError.GenericFailure(funcName: "playAudio", reason: "audio is not loaded, cannot play audio")
@@ -131,7 +137,13 @@ public class AudioManager: ObservableObject {
             print(player.isStarted)
         }
     }
-
+    
+    /*
+     pauseAudio: pauses player and stops timer and sets isPlaying boolean flag
+     @: called by ContentView; calls startTimer()
+     needs: loaded audio file
+     gives: freed memory, updated isPlaying boolean flag
+     */
     func pauseAudio() throws {
         guard isLoaded else {
             throw AudioManagerError.GenericFailure(funcName: "pauseAudio", reason: "audio is not loaded, cannot pause audio")
@@ -144,8 +156,12 @@ public class AudioManager: ObservableObject {
             throw AudioManagerError.GenericFailure(funcName: "pauseAudio", reason: "failed to pause audio and/or stop timer")
         }
     }
-
-    // basically pauseAudio() but we reset the progress to 0 too
+    /*
+     stopAudio: basically pauseAudio() but we reset the progress to 0 too. stops player and stops timer and sets isPlaying boolean flag and progress to 0
+     @: called by ContentView; calls startTimer()
+     needs: loaded audio file
+     gives: freed memory, updated isPlaying boolean flag, updated progress
+     */
     func stopAudio() throws {
         guard isLoaded else {
             throw AudioManagerError.GenericFailure(funcName: "stopAudio", reason: "audio is not loaded, cannot stop audio")
@@ -160,19 +176,36 @@ public class AudioManager: ObservableObject {
         }
 
     }
-
+    /*
+     addToPlaylist: takes an audioObject and appends it to playlist, includes check for duplication
+     @: called by ContentView; calls nothing
+     needs: audio object to add and non duplication in existing playlist
+     gives: updated playlist
+     */
     func addToPlaylist(audio: AudioObject) throws {
         guard !playlist.contains(audio) else {
             throw AudioManagerError.GenericFailure(funcName: "addToPlaylist", reason: "audio already exists in playlist, cannot add duplicate")
         }
         playlist.append(audio)
     }
+    
+    /*
+     clearPlaylist: sets playlist to be an empty array
+     @: called by ContentView; calls nothing
+     needs: nothing
+     gives: updated playlist
+     */
 
     func clearPlaylist() {
         playlist = []
     }
 
-    // should also handle buffer loading so we can preload waveform visual
+    /*
+     loadAudio: loads AVAudioFile, sets currentAudioObject, and sets boolean flag isLoaded
+     @: called by ContentView; calls nothing
+     needs: audio object
+     gives: loaded player, updated currentAudioObject and booleanflag isLoaded
+     */
     func loadAudio(audio: AudioObject) throws {
         do {
             let loadingFile = try AVAudioFile(forReading: audio.url)
@@ -185,7 +218,13 @@ public class AudioManager: ObservableObject {
             throw AudioManagerError.GenericFailure(funcName: "loadAudio", reason: "failed to load audio file into player")
         }
     }
-
+    
+    /*
+     removeFromPlaylist: removes audio object from playlist by first finding the index of said audio object
+     @: called by ContentView; calls nothing
+     needs: audioObject existing in current playlist
+     gives: updated playlist
+     */
     func removeFromPlaylist(audio: AudioObject) throws {
         guard let index = playlist.firstIndex(of: audio) else {
             throw AudioManagerError.GenericFailure(funcName: "removeFromPlaylist", reason: "audio does not exist in playlist, cannot remove")
