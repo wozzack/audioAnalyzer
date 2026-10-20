@@ -7,7 +7,7 @@ protocol StreamingConsumer: AnyObject {
 
 // produces a steady stream of overlapping raw sample frames for consumers from micManager's visual buffer
 class StreamingManager: ObservableObject {
-    let renderer = SpectrogramView() // the live model canvas draws
+    let renderer = SpectrogramGraph() // the live model canvas draws
     let source: MicManager // reads visualBuffer from micManager
     // serial queue provides lock-free safety since it can not be mutated by two pieces of code at the same time due to the queue, 2nd highest level of urgency as user is waiting on the result
     let queue = DispatchQueue(label: "streaming-manager",
@@ -22,14 +22,15 @@ class StreamingManager: ObservableObject {
         self.source = source
     }
     /*
-     start: caller for the packager. runs configuration setting on SpectrogramView() object then assigns off of the main thread onto the streaming queue we call to clear the accumulator before we resume the timer, which is allocated here and set to start immediately once resumed every 1/50 of a second and set to call the packager
+     start: caller for the packager. runs configuration setting on SpectrogramGraph() object then assigns off of the main thread onto the streaming queue we call to clear the accumulator before we resume the timer, which is allocated here and set to start immediately once resumed every 1/50 of a second and set to call the packager
      @: called by startLive(); calls configure() and packager()
      needs: sampleValue, dispatchQueue initialization
-     gives: the queue a task to do, along with configuration of the renderer (SpectrogramView())
+     gives: the queue a task to do, along with configuration of the renderer (SpectrogramGraph())
      */
     func start(sampleRate: Double) {
         // self.consumer = consumer
         renderer.configure(sampleRate: sampleRate)
+        renderer.secondsPerColumn = Double(hopSize) / sampleRate
         // do on queue to avoid race condition since it does a write, is called before we resume timer (which is by default suspended)
         queue.async { [weak self] in
             self?.frameAccumulator.removeAll(keepingCapacity: true)
@@ -47,7 +48,7 @@ class StreamingManager: ObservableObject {
      packager: micmanagers drain write but for streaming, turns raw and fast incoming samples into something that we can work with. while there is a sample to read, will append to the accumulator. once acculumator is full, consume the created window array and remove hopSize first elements in the accumulator (remember there has to be overlap)
      @: called by start(); calls consume() and read()
      needs: sample to read (or technically it doesnt)
-     gives: a window for SpectrogramView() to consume, an updated accumulator buffer
+     gives: a window for SpectrogramGraph() to consume, an updated accumulator buffer
      */
     func packager() {
         // keep adding samples to the accumulator as they come in, 44100hz
@@ -58,8 +59,23 @@ class StreamingManager: ObservableObject {
         while frameAccumulator.count >= frameSize {
             let window = Array(frameAccumulator.prefix(frameSize))
             frameAccumulator.removeFirst(hopSize)
+            // skips windows that have a dropped input cycle ("HALC … skipping cycle due to overload") 
+            if containsZeroRun(window, minRun: 64) { continue }
             renderer.consume(frame: window)
         }
+    }
+
+    func containsZeroRun(_ samples: [Float], minRun: Int) -> Bool {
+        var run = 0
+        for s in samples {
+            if s == 0 {
+                run += 1
+                if run >= minRun { return true }
+            } else {
+                run = 0
+            }
+        }
+        return false
     }
     /*
      stop: deallocates the timer and assigns clearing task to queue async-ly

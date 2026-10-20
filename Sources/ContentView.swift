@@ -5,7 +5,7 @@ import SwiftUI
 struct ContentView: View {
 
     @StateObject var audioManager = AudioManager()
-    @StateObject var waveformView = WaveformView()
+    @StateObject var waveformGraph = WaveformGraph()
     @StateObject var canvasManager = CanvasManager()
     @ObservedObject var micManager: MicManager
     @StateObject var errorReporter = ErrorReporter()
@@ -21,27 +21,10 @@ struct ContentView: View {
     // spectrogram display controls
     @State var freqScale: FrequencyScale = .mel
     @State var orientation: SpectrogramOrientation = .horizontal
-
-    // draws the spectrogram image into the canvas honoring the chosen orientation
-    // orientation is same image data laid out differently
-    private func drawSpectrogram(_ image: CGImage, in context: GraphicsContext, size: CGSize) {
-        var ctx = context
-        let img = Image(decorative: image, scale: 1)
-        switch orientation {
-        case .horizontal:
-            ctx.draw(img, in: CGRect(origin: .zero, size: size))
-        case .vertical:
-            // rotate about center and draw into a swapped-dimension rect so the image
-            // fills the frame
-            ctx.translateBy(x: size.width / 2, y: size.height / 2)
-            ctx.rotate(by: .degrees(-90))
-            ctx.draw(img, in: CGRect(x: -size.height / 2, y: -size.width / 2,
-                                     width: size.height, height: size.width))
-        }
-    }
+    @State var displayMode: DisplayMode = .spectrogram
 
     var body: some View {
-        HStack {
+        HStack(alignment: .top, spacing: 20) {
             VStack {
                 HStack {
                     TextField("Enter song name: ", text: $song)
@@ -106,52 +89,34 @@ struct ContentView: View {
                 }
             }
             
-            .frame(width: 200, height: 450)
+            .frame(width: 200)
+            .padding(.vertical, 10)
             .border(Color(.orange))
 
-            VStack {
-                Group {
-                    if canvasManager.isLive {
-                        // live mode: redraw on a timer so the scrolling spectrogram animates
-                        // even though warpedData changes aren't observed by this view
-                        TimelineView(.periodic(from: .now, by: 1.0 / 60.0)) { timeline in
-                            let tick = timeline.date
-                            Canvas { context, size in
-                                _ = tick
-                                if let cgImage = (try? canvasManager.visualModel?.drawGraph(
-                                    rect: CGRect(origin: .zero, size: size), color: Color(.red), lineWidth: 1.0)) ?? nil {
-                                    drawSpectrogram(cgImage, in: context, size: size)
-                                }
-                            }
-                        }
-                    } else {
-                        Canvas { context, size in
-                            if let _ = audioManager.player.file, audioManager.isLoaded {
-                                do {
-                                    //  grabs raw data from the AVAudioFile and processes it via unique downsampling technique
-                                    let cgImage = try canvasManager.visualModel?.drawGraph(rect: CGRect(origin: .zero, size: size), color: Color(.red), lineWidth: CGFloat(1.0)) // color actually doesnt do anything for spectrogram
-
-                                    if let cgImage {
-                                        drawSpectrogram(cgImage, in: context, size: size)
-                                    }
-                                } catch let error {
-                                    errorReporter.report(error)
-                                }
-                            } else {
-                                let placeholderText = Text("\(micManager.ampLevel)")
-                                context.draw(placeholderText, at: CGPoint(x: size.width / 2, y: size.height / 2))
-                            }
-                        }
-                        .onChange(of: audioManager.player.file) { _, newState in
-                            // reruns canvas closure if loaded file is changed.
-                        }
-                    }
-                }
+            VStack(spacing: 12) {
+                GraphView(
+                    model: canvasManager.visualModel as? SpectrogramGraph,
+                    displayMode: displayMode,
+                    orientation: orientation,
+                    isLive: canvasManager.isLive,
+                    showContent: audioManager.player.file != nil && audioManager.isLoaded,
+                    placeholder: "\(micManager.ampLevel)"
+                )
                 .frame(width: 600, height: 300)
                 .border(Color(.blue))
                 .padding(10)
 
-                // Spectrogram display controls
+                // view mode: spectrogram / spectrum / LTAS
+                Picker("View", selection: $displayMode) {
+                    ForEach(DisplayMode.allCases) { mode in
+                        Text(mode.label).tag(mode)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .frame(width: 600)
+                .padding(.horizontal, 10)
+
+                // spectrogram display controls
                 HStack {
                     Picker("Scale", selection: $freqScale) {
                         ForEach(FrequencyScale.allCases) { scale in
@@ -236,9 +201,11 @@ struct ContentView: View {
                 }
                 .border(Color(.green))
             }
-            .frame(width: 650, height: 450)
+            .frame(width: 640)
+            .padding(.vertical, 10)
             .border(Color(.orange))
         }
+        .padding(20)
         .alert(item: $errorReporter.currentError) { presented in
             Alert(
                 title: Text("Error"),

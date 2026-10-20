@@ -34,7 +34,7 @@ class CanvasManager: ObservableObject {
     private var streaming: StreamingManager?
 
     /*
-     startLive: prompted from user action on button, initalizes everything that needs to be done plus flag setting. clears graph, initializes streaming manager and sets renderer (SpectrogramView). starts renderer and sets bool flags graphShowing and isLive
+     startLive: prompted from user action on button, initalizes everything that needs to be done plus flag setting. clears graph, initializes streaming manager and sets renderer (SpectrogramGraph). starts renderer and sets bool flags graphShowing and isLive
      @: called by ContentView; calls clearGraph() and start()
      needs: micManager, sampleRate
      gives: updated empty graph, StreamingManager, graphShowing and isLive flag update
@@ -71,7 +71,7 @@ class CanvasManager: ObservableObject {
         switch newGraph {
         case .waveform:
             do {
-                let model = WaveformView() 
+                let model = WaveformGraph() 
                 try model.processFile(AVFile: file)
                 self.visualModel = model
                 self.graphShowing = true
@@ -80,7 +80,7 @@ class CanvasManager: ObservableObject {
             }
         case .spectrogram:
             do {
-                let model = SpectrogramView()
+                let model = SpectrogramGraph()
                 try model.processFile(AVFile: file)
                 //try model.fileDFT(frameSize: 2048, hopSize: 2)
                 //try model.convertToImageData()
@@ -103,7 +103,7 @@ class CanvasManager: ObservableObject {
     func setFrequencyScale(_ scale: FrequencyScale) {
         if isLive, let streaming {
             streaming.setFrequencyScale(scale)
-        } else if let spec = visualModel as? SpectrogramView, let file = spec.AVFile {
+        } else if let spec = visualModel as? SpectrogramGraph, let file = spec.AVFile {
             spec.frequencyScale = scale
             try? spec.processFile(AVFile: file)
         }
