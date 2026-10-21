@@ -1,10 +1,11 @@
 [Recently Finished]
 - Live audio processing with cycled disk-timer and no allocation/lock audio thread.
 - Three part pipeline with lock-free ring buffer acting as intermediatary.
-- CanvasManager user-adjustable view states.
-- Axes and labels for graphs.
+- CanvasManager user-adjustable view states and axes/labels for graphs.
+- Configuration settings for certain models.
 
 [Planned]
 - Connect Waveform.
 - Actual README.
 - Input calibration via level + tilt.
+- GraphManager refactor.

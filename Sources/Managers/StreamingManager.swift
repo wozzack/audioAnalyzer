@@ -16,7 +16,8 @@ class StreamingManager: ObservableObject {
     var timer: DispatchSourceTimer?
     // weak var consumer: StreamingConsumer? // avoid reference cycle with StreamingManager and consumer, can use consumer without keeping it alive
     var frameAccumulator: [Float] = [] // mutated with consume(), cleared by start() and stop()
-    let frameSize = 2048, hopSize = 512 // per fft frame
+    var frameSize: Int { renderer.config.frameSize }
+    var hopSize: Int { renderer.config.hopSize }
     
     init(source: MicManager) {
         self.source = source
