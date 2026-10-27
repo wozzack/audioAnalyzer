@@ -65,7 +65,7 @@ struct GraphView: View {
         let floorDB = spec.floorDB
         let gridShading = GraphicsContext.Shading.color(.gray.opacity(0.35))
         func yFor(intensity v: CGFloat) -> CGFloat { plot.maxY - plot.height * max(0, min(1, v)) }
-        func xFor(freq f: Float) -> CGFloat { plot.minX + plot.width * CGFloat(spec.normalizedPosition(forFrequency: f)) }
+        func xFor(freq f: Float) -> CGFloat { plot.minX + plot.width * CGFloat(spec.targetNormalPosition(frequency: f)) }
         func label(_ s: String, at p: CGPoint, anchor: UnitPoint) {
             context.draw(Text(s).font(.system(size: 9)).foregroundColor(.gray), at: p, anchor: anchor)
         }
@@ -153,7 +153,7 @@ struct GraphView: View {
         case .horizontal:
             // frequency on Y (low at bottom)
             for f in spec.frequencyTicks {
-                let y = plot.maxY - plot.height * CGFloat(spec.normalizedPosition(forFrequency: f))
+                let y = plot.maxY - plot.height * CGFloat(spec.targetNormalPosition(frequency: f))
                 hLine(y)
                 label(freqLabel(f), at: CGPoint(x: plot.minX - 4, y: y), anchor: .trailing)
             }
@@ -170,7 +170,7 @@ struct GraphView: View {
         case .vertical:
             // frequency on X
             for f in spec.frequencyTicks {
-                let x = plot.minX + plot.width * CGFloat(spec.normalizedPosition(forFrequency: f))
+                let x = plot.minX + plot.width * CGFloat(spec.targetNormalPosition(frequency: f))
                 vLine(x)
                 label(freqLabel(f), at: CGPoint(x: x, y: plot.maxY + 3), anchor: .top)
             }

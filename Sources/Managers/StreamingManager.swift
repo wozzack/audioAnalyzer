@@ -100,7 +100,7 @@ class StreamingManager: ObservableObject {
      */
     func setFrequencyScale(_ scale: FrequencyScale) {
         queue.async { [weak self] in
-            self?.renderer.rebuildFrequencyMap(scale: scale)
+            self?.renderer.rebuildFrequencyWarp(scale: scale)
         }
         Task { @MainActor [weak self] in
             self?.renderer.clearSpectrogramCaches()

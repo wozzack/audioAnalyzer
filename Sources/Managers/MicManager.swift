@@ -35,7 +35,7 @@ class MicManager: ObservableObject {
     
     // managed atomics
     let recordingFlag: ManagedAtomic<Bool>
-    let ampLevel: ManagedAtomic<UInt32>
+    // let ampLevel: ManagedAtomic<UInt32>
     let droppedBuffers: ManagedAtomic<Int>
     
     var writeTimer: DispatchSourceTimer?
@@ -59,7 +59,7 @@ class MicManager: ObservableObject {
         )
         // 2. initialize atomics
         recordingFlag = ManagedAtomic<Bool>(false)
-        ampLevel = ManagedAtomic<UInt32>(Float(0.0).bitPattern)
+        // ampLevel = ManagedAtomic<UInt32>(Float(0.0).bitPattern)
         droppedBuffers = ManagedAtomic<Int>(0)
         // initialize queue
         writeQueue = DispatchQueue(label: "disk-writer", qos: .utility)
@@ -172,7 +172,7 @@ class MicManager: ObservableObject {
             return
         }
         // compute level, atomic store to ampLevel
-        ampLevel.store(computeLevel(buffer: pcm).bitPattern, ordering: .relaxed)
+        // ampLevel.store(computeLevel(buffer: pcm).bitPattern, ordering: .relaxed)
         // write samples from pcm buffer into ring buffer
         // let dropped = droppedBuffers.load(ordering: .relaxed)
         for i in 0..<pcm.frameLength {
@@ -244,19 +244,6 @@ class MicManager: ObservableObject {
             print("drainWrite failed: \(error) (droppedBuffers: \(dropped))")
         }
         // note droppedBuffers in error message
-    }
-    
-    // placeholder for actual ftt calculation
-    func computeLevel(buffer: AVAudioPCMBuffer) -> Float {
-        guard let channelData = buffer.floatChannelData else {return 0}
-        let samples = channelData[0]
-        let frameCount = Int(buffer.frameLength)
-        
-        var sum: Float = 0
-        for i in 0..<frameCount {
-            sum += abs(samples[i])
-        }
-        return sum / Float(frameCount)
     }
 }
 

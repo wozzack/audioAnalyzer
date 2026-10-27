@@ -5,7 +5,8 @@
 - Configuration settings for certain models.
 
 [Planned]
-- Connect Waveform.
 - Actual README.
 - Input calibration via level + tilt.
 - GraphManager refactor.
+- Runtime diagnostics and more comprehensive failure handling.
+- Test suite for performance and correctness.

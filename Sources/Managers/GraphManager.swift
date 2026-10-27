@@ -139,10 +139,21 @@ class SpectrogramGraph: VisualGraph, ObservableObject {
     var AVFile: AVAudioFile?
     var sampleRate: Double? // initialized by configure()
     var frequencyScale: FrequencyScale = .mel
-    var frequencyMap: FrequencyMap? // initialized by configure()
     var config = SpectrogramConfig()
     var outputBins: Int { config.outputBins }
     var rollingWidth: Int { config.rollingWidth }
+    var warp: FrequencyWarp
+
+    var axisMinFrequency: Float { config.minFrequency }
+    var axisMaxFrequency: Float { Float((sampleRate ?? 44100) / 2) }
+    // axis forwarders: computed from main-owned state (scale / config / sampleRate), never the
+    // queue-owned warp, so main-thread drawing can't race the queue's warp rebuild
+    var frequencyTicks: [Float] {
+        FrequencyWarp.frequencyTicks(scale: frequencyScale, maxFrequency: axisMaxFrequency, minFrequency: config.minFrequency)
+    }
+    func targetNormalPosition(frequency: Float) -> Float {
+        FrequencyWarp.targetNormalizedPosition(scale: frequencyScale, frequency: frequency, minFrequency: config.minFrequency, maxFrequency: axisMaxFrequency)
+    }
     
     // seconds of audio each column represents (hop / sampleRate). set by the producer
     // (StreamingManager for live, processFile for files); used to label the time axis.
@@ -176,17 +187,17 @@ class SpectrogramGraph: VisualGraph, ObservableObject {
             fatalError("GraphManagerError.GenericFailure(funcName: \"init\", reason: \"failure to properly allocate DFT\"): \(error)")
         }
     }()
-
+    
+    init(config: SpectrogramConfig = SpectrogramConfig()) {
+        self.config = config
+        let defaultScale = FrequencyScale.mel
+        self.frequencyScale = defaultScale
+        self.warp = FrequencyWarp(scale: defaultScale, sampleRate: 44100, outputBins: config.outputBins, frameSize: config.frameSize, minFrequency: config.minFrequency, maxFrequency: 44100 / 2)
+    }
     // need to convert spectrogramData elements into spectrogram cell
     // create DFT per-frame inside frameDFT to avoid referencing undefined symbols and to keep type-checking simple
     
-    struct FrequencyMap {
-        let lo: [Int]
-        let hi: [Int]
-        let frac: [Float]
-        let outputBins: Int
-    }
-    
+
     /*
      createIntensityColumn: create a frame of brightness values to be color mapped and stored in shared cache
      @: called by processAudio() and consume(); calls nothing
@@ -216,11 +227,6 @@ class SpectrogramGraph: VisualGraph, ObservableObject {
         return output
     }
     
-    func peakdB(cells: [[Float]]) -> Float {
-        
-        return 0.0
-    }
-    
     /*
      createSpectrumColumn: the most recent columns intensities
      @: called by the Canvas; calls nothing
@@ -248,35 +254,6 @@ class SpectrogramGraph: VisualGraph, ObservableObject {
         return createIntensityColumn(from: sum)   // linear mean → dB → 0...1
     }
 
-    // the frequency range the axis spans (matches what frequencyMapping uses)
-    // ranges: both in Hz. min = 40; max = Nyquist = sampleRate/2 (≈22050 at 44.1 kHz, ≈24000 at 48 kHz)
-    var axisMinFrequency: Float { config.minFrequency }
-    var axisMaxFrequency: Float { Float((sampleRate ?? 44100) / 2) }
-
-    // inverse of targetFrequency: where (0...1, left→right) a given frequency sits on
-    // the current scale. lets curve axis labels line up with the warped x-axis.
-    // ranges: f = any Hz (clamped internally to [40, Nyquist]); returns a position in [0, 1]
-    func normalizedPosition(forFrequency f: Float) -> Float {
-        let lo = axisMinFrequency, hi = axisMaxFrequency
-        let x = min(max(f, lo), hi)
-        switch frequencyScale {
-        case .linear: return (x - lo) / (hi - lo)
-        case .log:    return log(x / lo) / log(hi / lo)
-        case .mel:    return (hzToMel(f: x) - hzToMel(f: lo)) / (hzToMel(f: hi) - hzToMel(f: lo))
-        }
-    }
-
-    // which frequencies get a gridline/label on the current scale, clipped to the visible
-    // axis range. a data decision (not a drawing one), shared by every view that renders a
-    // frequency axis so the spectrogram and the curves stay in sync.
-    // ranges: returns Hz values, each within [40, Nyquist] (subset of a fixed candidate set)
-    var frequencyTicks: [Float] {
-        let candidates: [Float] = (frequencyScale == .linear)
-            ? Array(stride(from: 0, through: axisMaxFrequency, by: 2000))
-            : [50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000]
-        return candidates.filter { $0 >= axisMinFrequency && $0 <= axisMaxFrequency }
-    }
-
     // seconds of history currently held (columns × secondsPerColumn): the span of the
     // spectrogram's time axis.
     // ranges: returns seconds ≥ 0 (0 when no columns, up to rollingWidth × secondsPerColumn)
@@ -295,15 +272,11 @@ class SpectrogramGraph: VisualGraph, ObservableObject {
      @: called by processAudio() and consume(); calls frameDFT(timeFrame), sliceWrap(frameDFT output)
      needs: timeFrame, sampleRate and frequencyMap initialization via configure()
      gives: warped magnitudes in [0, ∞) (~1.0 for a full-scale sine), length outputBins (256)
- ranges: frame = time-domain samples ~[-1.0, 1.0], length MUST be 2048 (the DFT size);~
+     ranges: frame = time-domain samples ~[-1.0, 1.0], length MUST be 2048 (the DFT size);~
      */
     func createMagnitudeColumn(from frame: [Float]) throws -> [Float] {
         let liveFrame = try frameDFT(timeFrame: frame)
-        guard let map = frequencyMap
-        else {
-            throw GraphManagerError.GenericFailure(funcName: "createColumn", reason: "failed frequency map guard.")
-        }
-        return sliceWarp(magnitudes: liveFrame, map: map)
+        return warp.sliceWarp(magnitudes: liveFrame)
     }
     
     /* appendColumn: cheap and lightweight, appends column of magnitudes to warpedData and column of intensity to intensityData, read by drawGraph on main thread. if the current image is full (> rollingWidth), drop the first X elements from warpedData and intensityData to fit in
@@ -354,10 +327,7 @@ class SpectrogramGraph: VisualGraph, ObservableObject {
             self.rawData = [AVFile.floatChannelData() as Any]
             self.AVFile = AVFile
             self.sampleRate = buffer.format.sampleRate
-            self.frequencyMap = frequencyMapping(scale: frequencyScale, sampleRate: buffer.format.sampleRate, frameSize: config.frameSize, outputRows: outputBins, minFrequency: config.minFrequency, maxFrequency: Float(buffer.format.sampleRate / 2))
-            guard let frequencyMap = self.frequencyMap
-            else {
-                throw GraphManagerError.GenericFailure(funcName: "processAudio", reason: "Frequency map failed to build.")}
+            self.warp = FrequencyWarp(scale: frequencyScale, sampleRate: buffer.format.sampleRate, outputBins: outputBins, frameSize: config.frameSize, minFrequency: config.minFrequency, maxFrequency: Float(buffer.format.sampleRate / 2))
             let channelCount = Int(buffer.format.channelCount)
             // downmix all channels to a single mono channel format
             var downmix = [Float](repeating: 0, count: Int(buffer.frameLength))
@@ -380,7 +350,7 @@ class SpectrogramGraph: VisualGraph, ObservableObject {
             self.secondsPerColumn = Double(pool * analysisHop) / buffer.format.sampleRate
             try fileDFT(frameSize: config.frameSize, hopSize: analysisHop, pool: pool)
             // warp AFTER fileDFT has populated spectrogramData
-            self.warpedData = spectrogramData.map { sliceWarp(magnitudes: $0, map: frequencyMap) }
+            self.warpedData = spectrogramData.map { warp.sliceWarp(magnitudes: $0) }
             self.intensityData = warpedData.map { createIntensityColumn(from: $0)}
             
                     
@@ -467,52 +437,17 @@ class SpectrogramGraph: VisualGraph, ObservableObject {
     // an array of arrays, where the outer dimension are time slices and each inner array is divided into freq bins, and the value in each bin represents the magnitude
     
     /*
-     hzToMel and melToHz: o'shaughnessy 1987, converts between hertz and mel
-     @: called by targetFrequency; calls nothing
-     needs: float value parameter
-     gives: converted float value
-     ranges: hzToMel: f = Hz ≥ 0 → mels ≥ 0; melToHz: m = mels ≥ 0 → Hz ≥ 0 (monotonic both ways)
-     */
-    func hzToMel(f: Float) -> Float {
-        2595 * log10(1 + f / 700)
-    }
-    
-    func melToHz(_ m: Float) -> Float {
-        700 * (pow(10, m / 2595) - 1)
-    }
-    
-    /*
-     targetFrequency: creates frequency bins depending on enum FrequencyScale, output is the frequency that the input row represents
-     @: called by frequencyMapping(); calls hzToMel() and melToHz()
-     needs: current row, total rows, frequency scale type, max frequency, and mininum frequency
-     gives: frequency to compute range of bins in frequencyMap type
-     ranges: row = [0, totalRows-1]; totalRows ≥ 2; 0 < minFrequency < maxFrequency ≤ Nyquist (Hz); returns Hz in [minFrequency, maxFrequency]
-     */
-    func targetFrequency(row: Int, totalRows: Int, scale: FrequencyScale, maxFrequency: Float, minFrequency: Float) -> Float {
-        let normalizedPosition = Float(row) / Float(totalRows - 1) // scale of 0.0 to 1.0
-        switch scale {
-        case .linear:
-            return minFrequency + (maxFrequency - minFrequency) * normalizedPosition
-        case .log:
-            return minFrequency * pow(maxFrequency / minFrequency, normalizedPosition)
-        case .mel:
-            let m = hzToMel(f: minFrequency) + (hzToMel(f: maxFrequency) - hzToMel(f: minFrequency)) * normalizedPosition
-            return melToHz(m)
-        }
-    }
-    
-    /*
-     rebuildFrequencyMap: rebuilds only the frequency map for when we change the frequency scaling, is deliberately not @MainActor. defaults to 4410 if sampleRate is not initialized
+     rebuildFrequencyWarp: rebuilds only the frequency map for when we change the frequency scaling, is deliberately not @MainActor. defaults to 44100 if sampleRate is not initialized
      @: called by setFrequencyScale; calls frequencyMapping
      needs: a given FrequencyScale type
      gives: an updated FrequencyScale type for the class instance
-     ranges: scale = any FrequencyScale case; rebuilds frequencyMap over [40, Nyquist] (sampleRate defaults to 44100 Hz if unset)
+     ranges: scale = any FrequencyScale case; rebuilds frequencyMap over [40, Nyquist] 
      */
-    func rebuildFrequencyMap(scale: FrequencyScale) {
+    func rebuildFrequencyWarp(scale: FrequencyScale) {
         let sr = sampleRate ?? 44100
         self.frequencyScale = scale
-        self.frequencyMap = frequencyMapping(scale: scale, sampleRate: sr, frameSize: config.frameSize,
-                                             outputRows: outputBins, minFrequency: config.minFrequency,
+        self.warp = FrequencyWarp(scale: scale, sampleRate: sr, outputBins: config.frameSize,
+                                  frameSize: outputBins, minFrequency: config.minFrequency,
                                              maxFrequency: Float(sr) / 2)
     }
 
@@ -526,46 +461,7 @@ class SpectrogramGraph: VisualGraph, ObservableObject {
         warpedData.removeAll(keepingCapacity: true)
         intensityData.removeAll(keepingCapacity: true)
     }
-    
-    /*
-     frequencyMapping: creates a range of frequencies for each bin in outputRows. starts with three arrays initialized with zeroes, and then computes the target frequency for each bin, and then stores the three arrays within a FrequencyMap structure.
-     @: called by configure() and processAudio(); calls targetFrequency()
-     needs: frequency scaling type, samplerate, framesize, output rows, min/max frequency
-     gives: FrequencyMap object for the given configuration
-     ranges: sampleRate > 0 Hz; frameSize = 2048; outputRows ≥ 1 (=outputBins); 0 < minFrequency < maxFrequency ≤ Nyquist (Hz). returns lo/hi bin indices in [0, frameSize/2] (0...1024) and frac weights in [0, 1]
-     */
-    func frequencyMapping(scale: FrequencyScale, sampleRate: Double, frameSize: Int, outputRows: Int, minFrequency: Float, maxFrequency: Float) -> FrequencyMap {
-        let numBins = (frameSize / 2) + 1 // conjugate-symmetry, only half are unique values
-        var lo = [Int](repeating: 0, count: outputRows)
-        var hi = [Int](repeating: 0, count: outputRows)
-        var frac = [Float](repeating: 0, count: outputRows)
-        for i in 0..<outputRows {
-            let freq = targetFrequency(row: i, totalRows: outputRows, scale: scale, maxFrequency: maxFrequency, minFrequency: minFrequency)
-            let x = min(max(freq * Float(frameSize) / Float(sampleRate), 0), Float(numBins - 1))
-            let l = Int(x.rounded(.down))
-            lo[i] = l
-            hi[i] = min(Int(l) + 1, numBins - 1)
-            frac[i] = x - Float(l)
-        }
-        return FrequencyMap(lo: lo, hi: hi, frac: frac, outputBins: outputRows)
-    }
-    
-    /*
-     sliceWarp: converts a range of frequency bins into another range of bins, mapping determined by the FrequencyMap. for each iterative index of the output, compute the value via map decoding
-     @: called by processAudio() and createMagnitudeColumn(); calls nothing
-     needs: float array of magnitudes and a frequency map
-     gives: warped float array of magnitudes
-     ranges: magnitudes = [0, ∞), length frameSize/2+1 = 1025; returns [0, ∞), length map.outputBins (256). interpolation preserves the input's range
-     */
-    func sliceWarp(magnitudes: [Float], map: FrequencyMap) -> [Float] {
-        var output = [Float](repeating: 0, count: map.outputBins)
-        for i in 0..<map.outputBins {
-            let a = magnitudes[map.lo[i]]
-            let b = magnitudes[map.hi[i]]
-            output[i] = a * (1 - map.frac[i]) + b * map.frac[i]
-        }
-        return output
-    }
+
     /*
      drawGraph: ...they do lots of things. checks if warpedData is empty, declares a cg image format and then flattens warpedData. converts flatSpectrogramData from an array to an unsafeMutableBufferPointer (has count, type, memory address, and built in bounds checking and iterates through intensityData, calculating its corresponding flat index to assign it to flatSpectrogramData. creates a pixelbuffer representing an image for each RGB channel, and then creating the final buffer when interleaved. expose flatSpectrogramDatas raw buffer as an unsafeBufferPointer and creates imageBuffer from it. it then applies the LUT to it, then creates a CG image from the rgb buffer
      @: called by ContentView; calls nothing
@@ -702,13 +598,13 @@ extension SpectrogramGraph: StreamingConsumer {
      */
     func configure(sampleRate: Double) {
         self.sampleRate = sampleRate
-        self.frequencyMap = frequencyMapping(scale: frequencyScale, sampleRate: sampleRate, frameSize: config.frameSize, outputRows: outputBins, minFrequency: config.minFrequency, maxFrequency: Float(sampleRate) / 2) }
+        self.warp = FrequencyWarp(scale: frequencyScale, sampleRate: sampleRate, outputBins: config.outputBins, frameSize: config.frameSize, minFrequency: config.minFrequency, maxFrequency: Float(sampleRate) / 2) }
     /*
      consume: guards creation of magnitude column, then creates intensity column from the magnitude column and appends both to the graph via MainActor task
      @: called by packager(); calls createMagnitudeColumn(), createIntensityColumn(), and appendColumn()
      needs: float array of amplitudes
      gives: graph update via CG image
-     ranges: frame = time samples ~[-1.0, 1.0], length MUST be 2048; appends one magnitude column [0, ∞) and one intensity column [0, 1]
+     ranges: frame = time samples [-1.0, 1.0], length must be 2048; appends one magnitude column [0, ∞) and one intensity column [0, 1]
      */
     func consume(frame: [Float]) {
         guard let magnitude = try? createMagnitudeColumn(from: frame)

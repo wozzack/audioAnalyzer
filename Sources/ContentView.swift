@@ -100,7 +100,7 @@ struct ContentView: View {
                     orientation: orientation,
                     isLive: canvasManager.isLive,
                     showContent: audioManager.player.file != nil && audioManager.isLoaded,
-                    placeholder: "\(micManager.ampLevel)"
+                    placeholder: "..."
                 )
                 .frame(width: 600, height: 300)
                 .border(Color(.blue))
