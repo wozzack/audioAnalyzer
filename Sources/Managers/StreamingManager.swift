@@ -52,10 +52,21 @@ class StreamingManager: ObservableObject {
      gives: a window for SpectrogramGraph() to consume, an updated accumulator buffer
      */
     func packager() {
+        // ...
+        if source.visualDiscontinuity.exchange(false, ordering: .acquiringAndReleasing) {
+            discardPendingVisualStream()
+            return
+        }
         // keep adding samples to the accumulator as they come in, 44100hz
         while let sample = source.visualBuffer.read() {
             frameAccumulator.append(sample)
         }
+        
+        if source.visualDiscontinuity.exchange(false, ordering: .acquiringAndReleasing) {
+            discardPendingVisualStream()
+            return
+        }
+        
         // when there are enough samples in accumulator to create a whole frame...
         while frameAccumulator.count >= frameSize {
             let window = Array(frameAccumulator.prefix(frameSize)) // whats passed as "frame" or "timeframe" in graphmanager functions
@@ -68,7 +79,15 @@ class StreamingManager: ObservableObject {
             renderer.consume(frame: window)
         }
     }
-
+    
+    func discardPendingVisualStream() {
+        frameAccumulator.removeAll(keepingCapacity: true)
+        
+        for _ in 0..<source.visualBuffer.capacity {
+            guard source.visualBuffer.read() != nil
+            else { break }
+        }
+    }
     func containsZeroRun(_ samples: [Float], minRun: Int) -> Bool {
         var run = 0
         for s in samples {
