@@ -4,6 +4,7 @@ import SwiftUI
 import Waveform
 import Accelerate
 import os
+import Atomics
 
 protocol VisualGraph: ObservableObject, AnyObject {
     associatedtype DSType
@@ -166,6 +167,7 @@ class SpectrogramGraph: VisualGraph, ObservableObject {
     var spectrogramData: [[Float]] = [] // 2D array for time-frequency spectrogram of size rollingWidth x outputBins
     var warpedData: [[Float]] = [] // spectrogramData but fitted to mel rows (outputBins)
     var intensityData: [[Float]] = [] // cache for how bright it is, leave to colorMapping to determine color
+    let scaleEpoch = ManagedAtomic<Int>(0)
     
     var floorDB: Float { get { config.floorDB } set { config.floorDB = newValue } }
     var ceilingDB: Float { get { config.ceilingDB } set { config.ceilingDB = newValue } }
@@ -285,7 +287,8 @@ class SpectrogramGraph: VisualGraph, ObservableObject {
     gives: an updated warpedData and intensityData at the correct size, along with an update-UI reminder
     ranges: magnitude = warped magnitudes [0, ∞); intensity = [0, 1]; both length outputBins (256). warpedData/intensityData capped at rollingWidth (512) columns
      */
-    @MainActor func appendColumn(magnitude: [Float], intensity: [Float]) {
+    @MainActor func appendColumn(magnitude: [Float], intensity: [Float], epoch: Int? = nil) {
+        if let epoch, epoch != scaleEpoch.load(ordering: .relaxed) { return }
         warpedData.append(magnitude)
         intensityData.append(intensity)
         if warpedData.count > rollingWidth {
@@ -445,9 +448,9 @@ class SpectrogramGraph: VisualGraph, ObservableObject {
      */
     func rebuildFrequencyWarp(scale: FrequencyScale) {
         let sr = sampleRate ?? 44100
-        self.frequencyScale = scale
-        self.warp = FrequencyWarp(scale: scale, sampleRate: sr, outputBins: config.frameSize,
-                                  frameSize: outputBins, minFrequency: config.minFrequency,
+        // frequencyScale is MainActor-owned (set in StreamingManager.setFrequencyScale); dontwrite it here on the streaming queue. this method only rebuilds the queue-owned warp
+        self.warp = FrequencyWarp(scale: scale, sampleRate: sr, outputBins: outputBins,
+                                  frameSize: config.frameSize, minFrequency: config.minFrequency,
                                              maxFrequency: Float(sr) / 2)
     }
 
@@ -529,7 +532,7 @@ class SpectrogramGraph: VisualGraph, ObservableObject {
         guard let cgImage = rgbBuffer.makeCGImage(cgImageFormat: rgbImageFormat) else {
             throw GraphManagerError.GenericFailure(funcName: "drawGraph2", reason: "failed to create CGImage from rgbBuffer")
         }
-        return cgImage // ?? SpectrogramGraph.emptyCGImage
+        return cgImage // ?? SpectrogramGraph.emptyCGImage nnah we guar now
      }
 
     static var multidimensionalLookupTable: vImage.MultidimensionalLookupTable = {
@@ -600,16 +603,17 @@ extension SpectrogramGraph: StreamingConsumer {
         self.sampleRate = sampleRate
         self.warp = FrequencyWarp(scale: frequencyScale, sampleRate: sampleRate, outputBins: config.outputBins, frameSize: config.frameSize, minFrequency: config.minFrequency, maxFrequency: Float(sampleRate) / 2) }
     /*
-     consume: guards creation of magnitude column, then creates intensity column from the magnitude column and appends both to the graph via MainActor task
+     consume: guards creation of magnitude column from , then creates intensity column from the magnitude column and appends both to the graph via MainActor task
      @: called by packager(); calls createMagnitudeColumn(), createIntensityColumn(), and appendColumn()
      needs: float array of amplitudes
      gives: graph update via CG image
      ranges: frame = time samples [-1.0, 1.0], length must be 2048; appends one magnitude column [0, ∞) and one intensity column [0, 1]
      */
     func consume(frame: [Float]) {
+        let epoch = scaleEpoch.load(ordering: .relaxed)
         guard let magnitude = try? createMagnitudeColumn(from: frame)
         else { return }
         let intensity = createIntensityColumn(from: magnitude)
-        Task { @MainActor in self.appendColumn(magnitude: magnitude, intensity: intensity) }
+        Task { @MainActor in self.appendColumn(magnitude: magnitude, intensity: intensity, epoch: epoch) }
     }
 }

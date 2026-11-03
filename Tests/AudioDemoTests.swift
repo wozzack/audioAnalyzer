@@ -272,12 +272,12 @@ class GraphManagerTestSuite {
             Float(sin(2 * Double.pi * testFreq * Double(i) / sampleRate))
         }
 
-        // build the mel map and produce one warped column
-        let map = sv.frequencyMapping(scale: .mel, sampleRate: sampleRate, frameSize: frameSize,
-                                      outputRows: outputRows, minFrequency: 40,
-                                      maxFrequency: Float(sampleRate / 2))
-        let linear = try sv.frameDFT(timeFrame: frame)          // 1025 linear magnitudes
-        let column = sv.sliceWarp(magnitudes: linear, map: map) // outputRows warped values
+        // build the mel warp and produce one warped column
+        let warp = FrequencyWarp(scale: .mel, sampleRate: sampleRate, outputBins: outputRows,
+                                 frameSize: frameSize, minFrequency: 40,
+                                 maxFrequency: Float(sampleRate / 2))
+        let linear = try sv.frameDFT(timeFrame: frame)       // 1025 linear magnitudes
+        let column = warp.sliceWarp(magnitudes: linear)      // outputRows warped values
 
         #expect(column.count == outputRows, "warped column should have one value per output row")
 
@@ -285,7 +285,7 @@ class GraphManagerTestSuite {
         guard let peakRow = column.indices.max(by: { column[$0] < column[$1] }) else {
             throw GraphManagerError.GenericFailure(funcName: "liveColumnSineMapping", reason: "empty warped column")
         }
-        let peakFreq = sv.targetFrequency(row: peakRow, totalRows: outputRows, scale: .mel,
+        let peakFreq = FrequencyWarp.targetFrequency(row: peakRow, totalRows: outputRows, scale: .mel,
                                           maxFrequency: Float(sampleRate / 2), minFrequency: 40)
 
         // FFT bin resolution is 44100/2048 ≈ 21.5 Hz, so allow ~a couple bins of slack
@@ -305,28 +305,29 @@ class GraphManagerTestSuite {
         let frame: [Float] = (0..<frameSize).map { i in
             Float(sin(2 * Double.pi * testFreq * Double(i) / sampleRate))
         }
-        let map = sv.frequencyMapping(scale: .mel, sampleRate: sampleRate, frameSize: frameSize,
-                                      outputRows: outputRows, minFrequency: 40,
-                                      maxFrequency: Float(sampleRate / 2))
+        let warp = FrequencyWarp(scale: .mel, sampleRate: sampleRate, outputBins: outputRows,
+                                 frameSize: frameSize, minFrequency: 40,
+                                 maxFrequency: Float(sampleRate / 2))
         let linear = try sv.frameDFT(timeFrame: frame)
-        let column = sv.sliceWarp(magnitudes: linear, map: map)
+        let column = warp.sliceWarp(magnitudes: linear)
 
         guard let peakRow = column.indices.max(by: { column[$0] < column[$1] }) else {
             throw GraphManagerError.GenericFailure(funcName: "liveColumnHighFrequencyMapping", reason: "empty column")
         }
-        let peakFreq = sv.targetFrequency(row: peakRow, totalRows: outputRows, scale: .mel,
+        let peakFreq = FrequencyWarp.targetFrequency(row: peakRow, totalRows: outputRows, scale: .mel,
                                           maxFrequency: Float(sampleRate / 2), minFrequency: 40)
         // mel rows are widely spaced up here (~80 Hz/row), so allow generous slack
         #expect(abs(peakFreq - Float(testFreq)) < 500,
                 "expected peak near \(testFreq) Hz, got \(peakFreq) Hz at row \(peakRow)")
     }
 
-    // configure() must build the frequency map before columns can be made.
+    // configure() rebuilds the warp for the given sample rate; columns can then be made.
     @Test func liveConfigureBuildsFrequencyMap() throws {
         let sv = SpectrogramGraph()
-        #expect(sv.frequencyMap == nil, "no map before configure")
-        sv.configure(sampleRate: 44100)
-        #expect(sv.frequencyMap != nil, "configure should build the frequency map")
+        // warp exists from init at the default 44100; configure updates it to the real rate
+        sv.configure(sampleRate: 48000)
+        #expect(sv.warp.sampleRate == 48000, "configure should rebuild the warp at the given rate")
+        #expect(sv.warp.map.outputBins == sv.outputBins, "map has one row per output bin")
 
         // frameSize matches the fixed 2048-point DFT used by frameDFT
         let column = try sv.createMagnitudeColumn(from: [Float](repeating: 0, count: 2048))
@@ -351,9 +352,9 @@ class GraphManagerTestSuite {
     // the mel map should be well-formed: right length, monotonic bins, valid weights.
     @Test func frequencyMapIsWellFormed() {
         let sv = SpectrogramGraph()
-        let map = sv.frequencyMapping(scale: .mel, sampleRate: 44100, frameSize: 2048,
-                                      outputRows: sv.outputBins, minFrequency: 40,
-                                      maxFrequency: 22050)
+        let warp = FrequencyWarp(scale: .mel, sampleRate: 44100, outputBins: sv.outputBins,
+                                 frameSize: 2048, minFrequency: 40, maxFrequency: 22050)
+        let map = warp.map
         #expect(map.lo.count == sv.outputBins)
         #expect(map.hi.count == sv.outputBins)
         #expect(map.frac.count == sv.outputBins)
@@ -385,16 +386,16 @@ class GraphManagerTestSuite {
         let sv = SpectrogramGraph()   // Nyquist 22050
         for scale in FrequencyScale.allCases {
             sv.frequencyScale = scale
-            let lo = sv.normalizedPosition(forFrequency: sv.axisMinFrequency)
-            let hi = sv.normalizedPosition(forFrequency: sv.axisMaxFrequency)
+            let lo = sv.targetNormalPosition(frequency: sv.axisMinFrequency)
+            let hi = sv.targetNormalPosition(frequency: sv.axisMaxFrequency)
             #expect(abs(lo - 0) < 1e-4, "\(scale): min frequency maps to 0")
             #expect(abs(hi - 1) < 1e-4, "\(scale): max frequency maps to 1")
             // out-of-range inputs clamp to the endpoints
-            #expect(sv.normalizedPosition(forFrequency: 10) == lo, "\(scale): below-min clamps to 0")
-            #expect(sv.normalizedPosition(forFrequency: 40000) == hi, "\(scale): above-max clamps to 1")
+            #expect(sv.targetNormalPosition(frequency: 10) == lo, "\(scale): below-min clamps to 0")
+            #expect(sv.targetNormalPosition(frequency: 40000) == hi, "\(scale): above-max clamps to 1")
             // strictly increasing with frequency
             let freqs: [Float] = [50, 200, 1000, 5000, 15000]
-            let positions = freqs.map { sv.normalizedPosition(forFrequency: $0) }
+            let positions = freqs.map { sv.targetNormalPosition(frequency: $0) }
             #expect(zip(positions, positions.dropFirst()).allSatisfy { $0 < $1 },
                     "\(scale): position must increase with frequency")
         }
@@ -493,9 +494,8 @@ class MicManagerTestSuite {
         #expect(ring.read() == nil, "drained buffer reads nil")
     }
 
-    // bufferHandler must fan the same samples into BOTH ring buffers (disk + viz)
-    // and store the mean magnitude into ampLevel.
-    @Test func bufferHandlerFansOutAndComputesLevel() throws {
+    // bufferHandler must fan the same samples into BOTH ring buffers (disk + viz).
+    @Test func bufferHandlerFansOutToBothBuffers() throws {
         let mic = MicManager(outputURL: tempURL("bh-test.caf"))
         let format = AVAudioFormat(standardFormatWithSampleRate: 44100, channels: 1)!
         let count: AVAudioFrameCount = 256
@@ -511,9 +511,6 @@ class MicManagerTestSuite {
         for i in 0..<Int(count) {
             #expect(mic.visualBuffer.read() == Float(i), "visual buffer missing sample \(i)")
         }
-        // ramp 0..255 → mean magnitude = 127.5
-        let level = Float(bitPattern: mic.ampLevel.load(ordering: .relaxed))
-        #expect(abs(level - 127.5) < 0.01, "ampLevel should equal mean magnitude, got \(level)")
     }
 
     // an empty/zero-length buffer should be ignored (guard clauses), leaving the

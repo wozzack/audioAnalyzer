@@ -1,4 +1,5 @@
 import Foundation
+import Atomics
 
 protocol StreamingConsumer: AnyObject {
     func configure(sampleRate: Double)
@@ -58,7 +59,7 @@ class StreamingManager: ObservableObject {
         }
         // when there are enough samples in accumulator to create a whole frame...
         while frameAccumulator.count >= frameSize {
-            let window = Array(frameAccumulator.prefix(frameSize))
+            let window = Array(frameAccumulator.prefix(frameSize)) // whats passed as "frame" or "timeframe" in graphmanager functions
             frameAccumulator.removeFirst(hopSize)
             // skips windows that have a dropped input cycle ("HALC … skipping cycle due to overload") 
             if containsZeroRun(window, minRun: 64) { continue }
@@ -87,6 +88,7 @@ class StreamingManager: ObservableObject {
     func stop() {
         timer?.cancel()
         timer = nil
+        renderer.scaleEpoch.wrappingIncrement(ordering: .relaxed)
         queue.async { [weak self] in
             self?.frameAccumulator.removeAll(keepingCapacity: true)
         }
@@ -100,9 +102,11 @@ class StreamingManager: ObservableObject {
      */
     func setFrequencyScale(_ scale: FrequencyScale) {
         queue.async { [weak self] in
+            self?.renderer.scaleEpoch.wrappingIncrement(ordering: .relaxed)
             self?.renderer.rebuildFrequencyWarp(scale: scale)
         }
         Task { @MainActor [weak self] in
+            self?.renderer.frequencyScale = scale
             self?.renderer.clearSpectrogramCaches()
         }
     }
