@@ -30,11 +30,10 @@ class StreamingManager: ObservableObject {
      gives: the queue a task to do, along with configuration of the renderer (SpectrogramGraph())
      */
     func start(sampleRate: Double) {
-        // self.consumer = consumer
-        renderer.configure(sampleRate: sampleRate)
-        renderer.secondsPerColumn = Double(hopSize) / sampleRate
         // do on queue to avoid race condition since it does a write, is called before we resume timer (which is by default suspended)
         queue.async { [weak self] in
+            self?.renderer.configure(sampleRate: sampleRate)
+            self?.renderer.secondsPerColumn = Double(self?.hopSize ?? 0) / sampleRate
             self?.frameAccumulator.removeAll(keepingCapacity: true)
         }
         let t = DispatchSource.makeTimerSource(queue: queue)
@@ -60,9 +59,12 @@ class StreamingManager: ObservableObject {
         // when there are enough samples in accumulator to create a whole frame...
         while frameAccumulator.count >= frameSize {
             let window = Array(frameAccumulator.prefix(frameSize)) // whats passed as "frame" or "timeframe" in graphmanager functions
+            // skips windows that have a dropped input cycle ("HALC … skipping cycle due to overload")
+            if containsZeroRun(window, minRun: 64) {
+                frameAccumulator.removeAll(keepingCapacity: true)
+                break
+            }
             frameAccumulator.removeFirst(hopSize)
-            // skips windows that have a dropped input cycle ("HALC … skipping cycle due to overload") 
-            if containsZeroRun(window, minRun: 64) { continue }
             renderer.consume(frame: window)
         }
     }

@@ -36,7 +36,7 @@ class MicManager: ObservableObject {
     // managed atomics
     let recordingFlag: ManagedAtomic<Bool>
     // let ampLevel: ManagedAtomic<UInt32>
-    let droppedBuffers: ManagedAtomic<Int>
+    let droppedSamples: ManagedAtomic<Int>
     
     var writeTimer: DispatchSourceTimer?
     var writeQueue: DispatchQueue
@@ -60,7 +60,7 @@ class MicManager: ObservableObject {
         // 2. initialize atomics
         recordingFlag = ManagedAtomic<Bool>(false)
         // ampLevel = ManagedAtomic<UInt32>(Float(0.0).bitPattern)
-        droppedBuffers = ManagedAtomic<Int>(0)
+        droppedSamples = ManagedAtomic<Int>(0)
         // initialize queue
         writeQueue = DispatchQueue(label: "disk-writer", qos: .utility)
         // 3. create AVAudioFile for writing
@@ -177,14 +177,12 @@ class MicManager: ObservableObject {
         // let dropped = droppedBuffers.load(ordering: .relaxed)
         for i in 0..<pcm.frameLength {
             let sample = pcm.floatChannelData?[0][Int(i)] ?? 0.0
-            if !ringBuffer.write(data: sample) {
-                // droppedBuffers.store(dropped + 1, ordering: .relaxed)
+            if !ringBuffer.write(data: sample) || !visualBuffer.write(data: sample) {
+                // droppedSamples.store(dropped + 1, ordering: .relaxed)
                 // increments by total dropped samples
-                droppedBuffers.wrappingIncrement(ordering: .relaxed)
+                droppedSamples.wrappingIncrement(ordering: .relaxed)
             }
-            // fan out the same sample to the visualization buffer (separate reader
-            // from the disk writer); dropping on full is fine for display
-            _ = visualBuffer.write(data: sample)
+            // fan out the same sample to the visualization buffer (separate reader from the disk writer); dropping on full is fine for display
         }
         
         // if failure (full or otherwise, need to call write from RingBuffer, droppedBuffers += 1
@@ -240,7 +238,7 @@ class MicManager: ObservableObject {
             try audioFile.write(from: drainBuffer)
             // audioFile = try AVAudioFile(url: outputURL, fromBuffer: drainBuffer)
         } catch {
-            let dropped = droppedBuffers.load(ordering: .relaxed)
+            let dropped = droppedSamples.load(ordering: .relaxed)
             print("drainWrite failed: \(error) (droppedBuffers: \(dropped))")
         }
         // note droppedBuffers in error message

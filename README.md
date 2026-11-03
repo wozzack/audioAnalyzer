@@ -7,6 +7,6 @@
 [Planned]
 - Actual README.
 - Input calibration via level + tilt.
-- GraphManager refactor.
+- Session tracking for different contexts.
 - Runtime diagnostics and more comprehensive failure handling.
 - Test suite for performance and correctness.
